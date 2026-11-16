@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestion de l'affichage</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect x=%222%22 y=%225%22 width=%2228%22 height=%2220%22 rx=%223%22 fill=%22%231f6f5c%22/%3E%3Cpath d=%22M6 21l6-7 4 4 3-3 7 6z%22 fill=%22%23fff%22/%3E%3C/svg%3E">
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --panel: #ffffff;
+    --ink: #1c1c1a;
+    --muted: #6d6b64;
+    --line: #e2e0d8;
+    --accent: #1f6f5c;
+    --accent-ink: #ffffff;
+    --danger: #b3261e;
+    --warn-bg: #fff4d6;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 18px 28px; border-bottom: 1px solid var(--line); background: var(--panel);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: .2px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  main { max-width: 1180px; margin: 0 auto; padding: 24px 28px 120px; }
+  a { color: var(--accent); }
+  button, .btn {
+    font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    padding: 8px 14px; border-radius: 8px; cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  button:hover, .btn:hover { border-color: #c9c6bb; }
+  button:disabled { opacity: .5; cursor: default; }
+  .primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .primary:hover { filter: brightness(1.08); border-color: var(--accent); }
+  .danger { color: var(--danger); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+  .card h2 { font-size: 16px; margin: 0 0 12px; }
+  .hidden { display: none !important; }
+  .muted { color: var(--muted); }
+  input[type=password], input[type=text], input[type=number], select {
+    font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
+  }
+  ol.steps { padding-left: 20px; margin: 8px 0 16px; }
+  ol.steps li { margin: 4px 0; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+  #drop {
+    border: 2px dashed #c9c6bb; border-radius: var(--radius); background: var(--panel);
+    padding: 34px 20px; text-align: center; cursor: pointer; transition: .15s;
+    margin-bottom: 20px;
+  }
+  #drop.over { border-color: var(--accent); background: #eef6f3; }
+  #drop strong { display: block; font-size: 16px; margin-bottom: 4px; }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 14px; }
+  .toolbar .settings { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .toolbar label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 14px; }
+  .toolbar input[type=number] { width: 70px; }
+
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+  .item {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+    display: flex; flex-direction: column; transition: .15s;
+  }
+  .item.off .thumb img { opacity: .35; filter: grayscale(1); }
+  .item.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .thumb { aspect-ratio: 16/10; background: #2a2a28; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
+  .thumb img { width: 100%; height: 100%; object-fit: contain; transition: .15s; }
+  .badge {
+    position: absolute; top: 8px; left: 8px; background: var(--accent); color: #fff;
+    font-size: 12px; padding: 2px 8px; border-radius: 99px;
+  }
+  .item.off .badge { background: rgba(0,0,0,.6); }
+  .meta { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .actions { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .actions .btns { display: inline-flex; gap: 4px; flex-shrink: 0; }
+  .actions button { padding: 4px 8px; font-size: 13px; }
+
+  .switch { position: relative; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; }
+  .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch .track { width: 36px; height: 20px; border-radius: 99px; background: #cfccc2; position: relative; transition: .15s; }
+  .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: .15s; }
+  .switch input:checked + .track { background: var(--accent); }
+  .switch input:checked + .track::after { left: 18px; }
+  .switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  #empty { text-align: center; padding: 40px; }
+
+  #savebar {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    background: var(--ink); color: #fff; padding: 10px 12px 10px 20px; border-radius: 14px;
+    display: flex; gap: 14px; align-items: center; box-shadow: 0 8px 30px rgba(0,0,0,.25); z-index: 20;
+  }
+  #savebar button { border-color: transparent; }
+  #savebar .ghost { background: transparent; color: #ddd; }
+
+  #toast {
+    position: fixed; right: 20px; top: 80px; max-width: 380px; padding: 12px 16px; border-radius: 10px;
+    background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 30px rgba(0,0,0,.12); z-index: 30;
+  }
+  #toast.error { border-color: var(--danger); color: var(--danger); }
+  #progress { margin-bottom: 20px; }
+  progress { width: 100%; height: 8px; accent-color: var(--accent); }
+  .note { background: var(--warn-bg); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+  @media (max-width: 600px) {
+    header, main { padding-left: 16px; padding-right: 16px; }
+    #grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Gestion de l'affichage</h1>
+    <div class="sub" id="repoLabel"></div>
+  </div>
+  <div class="row">
+    <a class="btn" href="diaporama.html" target="_blank" rel="noopener">Ouvrir le diaporama ↗</a>
+    <button id="logoutBtn" class="hidden" title="Oublier le jeton sur cet appareil">Se déconnecter</button>
+  </div>
+</header>
+
+<main>
+  <!-- Connexion -->
+  <section id="loginCard" class="card hidden">
+    <h2>Connexion au dépôt GitHub</h2>
+    <p class="muted">Les images sont enregistrées directement dans le dépôt. Pour cela, cette page a besoin d'un jeton d'accès GitHub (à faire une seule fois par appareil) :</p>
+    <ol class="steps">
+      <li>Ouvrez <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com → Fine-grained token</a>.</li>
+      <li><b>Repository access</b> : « Only select repositories » → choisissez <b id="repoName"></b>.</li>
+      <li><b>Permissions → Repository permissions → Contents</b> : « Read and write ».</li>
+      <li>Générez le jeton, copiez-le et collez-le ci-dessous.</li>
+    </ol>
+    <form id="loginForm" class="row">
+      <input id="tokenInput" type="password" placeholder="github_pat_…" autocomplete="off" style="flex:1;min-width:260px">
+      <button class="primary" type="submit">Se connecter</button>
+    </form>
+    <p class="muted" style="font-size:13px;margin-bottom:0">Le jeton reste uniquement dans ce navigateur.</p>
+  </section>
+
+  <!-- Gestion -->
+  <section id="app" class="hidden">
+    <div id="drop" tabindex="0" role="button">
+      <strong>Déposez des images ici</strong>
+      <span class="muted">ou cliquez pour choisir des fichiers (JPG, PNG, WebP, GIF…)</span>
+      <input id="fileInput" type="file" accept="image/*" multiple hidden>
+    </div>
+
+    <div id="progress" class="card hidden">
+      <div id="progressText" style="margin-bottom:8px">Envoi…</div>
+      <progress id="progressBar" max="100" value="0"></progress>
+    </div>
+
+    <div class="toolbar">
+      <div><b id="countOn">0</b> <span class="muted">image(s) affichée(s) sur</span> <b id="countAll">0</b></div>
+      <div class="settings">
+        <label>Durée par image <input id="duration" type="number" min="2" max="3600" step="1"> s</label>
+        <label>Cadrage
+          <select id="fit">
+            <option value="contain">Image entière</option>
+            <option value="cover">Remplir l'écran</option>
+          </select>
+        </label>
+        <label><input id="shuffle" type="checkbox"> Ordre aléatoire</label>
+        <button id="allOn">Tout afficher</button>
+        <button id="allOff">Tout masquer</button>
+      </div>
+    </div>
+
+    <div id="grid"></div>
+    <div id="empty" class="card hidden muted">Aucune image pour l'instant. Ajoutez-en avec la zone ci-dessus.</div>
+  </section>
+
+  <div id="loading" class="card muted">Chargement…</div>
+</main>
+
+<div id="savebar" class="hidden">
+  <span id="saveText">Modifications non publiées</span>
+  <button id="discardBtn" class="ghost">Annuler</button>
+  <button id="publishBtn" class="primary">Publier</button>
+</div>
+<div id="toast" class="hidden"></div>
+
+<script>
+(() => {
+  'use strict';
+  const C = window.DISPLAY_CONFIG;
+  const API = `https://api.github.com/repos/${C.owner}/${C.repo}`;
+  const IMG_RE = /\.(jpe?g|png|gif|webp|avif|bmp|svg)$/i;
+  const MAX_SIDE = 2560;          // taille max (px) après redimensionnement
+  const MAX_UNTOUCHED = 1.5e6;    // en dessous, l'image est envoyée telle quelle
+  const $ = (id) => document.getElementById(id);
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+    del(k) { try { localStorage.removeItem(k); } catch {} },
+  };
+  const TOKEN_KEY = `displaylscs_token_${C.owner}_${C.repo}`;
+  let token = store.get(TOKEN_KEY) || '';
+
+  let headSha = null;       // dernier commit connu
+  let config = null;        // état local (modifiable)
+  let savedJson = '';       // dernier état publié
+  let busy = false;
+
+  $('repoLabel').textContent = `${C.owner}/${C.repo}`;
+  $('repoName').textContent = C.repo;
+
+  // ---------- Utilitaires ----------
+  function toast(msg, isError = false, ms = 4500) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = isError ? 'error' : '';
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.add('hidden'), ms);
+  }
+  const show = (id, on) => $(id).classList.toggle('hidden', !on);
+
+  async function gh(path, opts = {}) {
+    const url = path.startsWith('http') ? path : (path ? `${API}/${path}` : API);
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      Accept: opts.accept || 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
+    if (opts.body) headers['Content-Type'] = 'application/json';
+    const res = await fetch(url, {
+      method: opts.method || 'GET', headers, cache: 'no-store',
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if (!res.ok) {
+      let detail = '';
+      try { detail = (await res.json()).message || ''; } catch {}
+      const err = new Error(`GitHub ${res.status}${detail ? ' – ' + detail : ''}`);
+      err.status = res.status;
+      throw err;
+    }
+    if (opts.raw) return res.text();
+    return res.status === 204 ? null : res.json();
+  }
+
+  function utf8ToB64(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  function blobToB64(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result).split(',')[1]);
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(blob);
+    });
+  }
+  const encPath = (p) => p.split('/').map(encodeURIComponent).join('/');
+  const rawUrl = (path) => `https://raw.githubusercontent.com/${C.owner}/${C.repo}/${headSha}/${encPath(path)}`;
+  const configJson = () => JSON.stringify(config, null, 2) + '\n';
+
+  function defaultConfig() { return { duration: 8, fit: 'contain', shuffle: false, images: [] }; }
+
+  // Un seul commit pour plusieurs fichiers (ajouts / suppressions).
+  async function commitFiles(files, message, onBlob) {
+    const ref = await gh(`git/ref/heads/${C.branch}`);
+    const parent = ref.object.sha;
+    const parentCommit = await gh(`git/commits/${parent}`);
+    const tree = [];
+    let n = 0;
+    for (const f of files) {
+      if (f.delete) {
+        tree.push({ path: f.path, mode: '100644', type: 'blob', sha: null });
+      } else {
+        const blob = await gh('git/blobs', { method: 'POST', body: { content: f.base64 ?? utf8ToB64(f.content), encoding: 'base64' } });
+        tree.push({ path: f.path, mode: '100644', type: 'blob', sha: blob.sha });
+      }
+      onBlob && onBlob(++n, files.length);
+    }
+    const newTree = await gh('git/trees', { method: 'POST', body: { base_tree: parentCommit.tree.sha, tree } });
+    const commit = await gh('git/commits', { method: 'POST', body: { message, tree: newTree.sha, parents: [parent] } });
+    await gh(`git/refs/heads/${C.branch}`, { method: 'PATCH', body: { sha: commit.sha } });
+    headSha = commit.sha;
+    return commit.sha;
+  }
+
+  // ---------- Chargement ----------
+  async function load() {
+    show('loading', true);
+    const repo = await gh('');
+    if (!repo.permissions || !repo.permissions.push) {
+      const e = new Error("Ce jeton n'a pas le droit d'écrire dans le dépôt (Contents : Read and write).");
+      e.status = 403; throw e;
+    }
+    const ref = await gh(`git/ref/heads/${C.branch}`);
+    headSha = ref.object.sha;
+
+    let cfg;
+    try {
+      cfg = JSON.parse(await gh(`contents/${encPath(C.configPath)}?ref=${headSha}`, { accept: 'application/vnd.github.raw+json', raw: true }));
+    } catch (e) {
+      if (e.status !== 404) throw e;
+      cfg = defaultConfig();
+    }
+    let files = [];
+    try {
+      const list = await gh(`contents/${encPath(C.imagesDir)}?ref=${headSha}`);
+      files = list.filter((f) => f.type === 'file' && IMG_RE.test(f.name)).map((f) => f.path);
+    } catch (e) {
+      if (e.status !== 404) throw e;
+    }
+
+    // Normalisation : on retire les entrées sans fichier, on ajoute (masquées) les images présentes mais inconnues.
+    cfg = Object.assign(defaultConfig(), cfg);
+    const fileSet = new Set(files);
+    cfg.images = (cfg.images || []).filter((im) => im && fileSet.has(im.file));
+    const known = new Set(cfg.images.map((im) => im.file));
+    for (const f of files) if (!known.has(f)) cfg.images.push({ file: f, name: f.split('/').pop(), visible: false });
+    config = cfg;
+    savedJson = cleanConfig();
+    show('loading', false);
+    show('app', true);
+    show('logoutBtn', true);
+    render();
+  }
+
+  // ---------- Affichage ----------
+  function render() {
+    $('duration').value = config.duration;
+    $('fit').value = config.fit;
+    $('shuffle').checked = !!config.shuffle;
+
+    const grid = $('grid');
+    grid.innerHTML = '';
+    config.images.forEach((im, i) => {
+      const el = document.createElement('div');
+      el.className = 'item ' + (im.visible ? 'on' : 'off');
+      el.innerHTML = `
+        <div class="thumb" title="Cliquer pour afficher / masquer">
+          <img loading="lazy" alt="">
+          <span class="badge">${im.visible ? 'Affichée' : 'Masquée'}</span>
+        </div>
+        <div class="meta">
+          <div class="name"></div>
+          <div class="actions">
+            <label class="switch"><input type="checkbox" ${im.visible ? 'checked' : ''}><span class="track"></span>Afficher</label>
+            <span class="btns">
+              <button data-a="up" title="Monter" ${i === 0 ? 'disabled' : ''}>↑</button>
+              <button data-a="down" title="Descendre" ${i === config.images.length - 1 ? 'disabled' : ''}>↓</button>
+              <button data-a="del" class="danger" title="Supprimer">✕</button>
+            </span>
+          </div>
+        </div>`;
+      el.querySelector('img').src = im.preview || rawUrl(im.file);
+      el.querySelector('.name').textContent = im.name || im.file;
+      el.querySelector('.name').title = im.name || im.file;
+      const toggle = () => { im.visible = !im.visible; render(); };
+      el.querySelector('.thumb').onclick = toggle;
+      el.querySelector('input').onchange = toggle;
+      el.querySelector('[data-a=up]').onclick = () => move(i, -1);
+      el.querySelector('[data-a=down]').onclick = () => move(i, 1);
+      el.querySelector('[data-a=del]').onclick = () => removeImage(i);
+      grid.appendChild(el);
+    });
+
+    const on = config.images.filter((im) => im.visible).length;
+    $('countOn').textContent = on;
+    $('countAll').textContent = config.images.length;
+    show('empty', config.images.length === 0);
+    updateSavebar();
+  }
+
+  function cleanConfig() {
+    // Les aperçus locaux (blob:) ne sont jamais publiés.
+    return JSON.stringify(config, (k, v) => (k === 'preview' ? undefined : v), 2) + '\n';
+  }
+  const isDirty = () => config && cleanConfig() !== savedJson;
+  function updateSavebar() {
+    show('savebar', isDirty() && !busy);
+  }
+
+  function move(i, d) {
+    const j = i + d;
+    if (j < 0 || j >= config.images.length) return;
+    [config.images[i], config.images[j]] = [config.images[j], config.images[i]];
+    render();
+  }
+
+  // ---------- Actions ----------
+  async function publish() {
+    if (busy) return;
+    busy = true; updateSavebar();
+    $('publishBtn').disabled = true;
+    try {
+      const json = cleanConfig();
+      await commitFiles([{ path: C.configPath, content: json }], 'Mise à jour de la sélection');
+      savedJson = json;
+      toast("Publié ✔ Le diaporama se mettra à jour d'ici une minute environ.");
+    } catch (e) {
+      handleError(e, 'Échec de la publication');
+    } finally {
+      busy = false; $('publishBtn').disabled = false; updateSavebar();
+    }
+  }
+
+  async function removeImage(i) {
+    if (busy) return;
+    const im = config.images[i];
+    if (!confirm(`Supprimer définitivement « ${im.name || im.file} » ?`)) return;
+    busy = true; updateSavebar();
+    const backup = config.images.slice();
+    config.images.splice(i, 1);
+    try {
+      const json = cleanConfig();
+      await commitFiles([{ path: im.file, delete: true }, { path: C.configPath, content: json }], `Suppression de ${im.name || im.file}`);
+      savedJson = json;
+      toast('Image supprimée.');
+    } catch (e) {
+      config.images = backup;
+      handleError(e, 'Échec de la suppression');
+    } finally {
+      busy = false; render();
+    }
+  }
+
+  function slugify(name) {
+    return name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'image';
+  }
+
+  // Redimensionne les grandes images pour garder le dépôt léger.
+  async function prepare(file) {
+    const ext = (file.name.match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase();
+    const passthrough = { blob: file, ext: ext || (file.type.split('/')[1] || 'jpg') };
+    if (/gif|svg/.test(file.type) || /^(gif|svg)$/.test(ext)) return passthrough; // animations / vectoriel : tel quel
+    let bmp;
+    try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch { if (IMG_RE.test(file.name)) return passthrough; throw new Error(`Format non pris en charge : ${file.name}`); }
+    const big = Math.max(bmp.width, bmp.height) > MAX_SIDE;
+    if (!big && file.size <= MAX_UNTOUCHED && IMG_RE.test(file.name)) { bmp.close && bmp.close(); return passthrough; }
+    const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close && bmp.close();
+    const isJpeg = /jpe?g/.test(file.type) || /^jpe?g$/.test(ext) || /heic|heif/.test(file.type + ext);
+    const type = isJpeg ? 'image/jpeg' : 'image/webp';
+    const blob = await new Promise((res) => canvas.toBlob(res, type, 0.88));
+    if (!blob) return passthrough;
+    return { blob, ext: isJpeg ? 'jpg' : 'webp' };
+  }
+
+  async function upload(fileList) {
+    const files = [...fileList].filter((f) => f.type.startsWith('image/') || IMG_RE.test(f.name));
+    if (!files.length) { toast("Aucune image dans la sélection.", true); return; }
+    if (busy) { toast('Une opération est déjà en cours…', true); return; }
+    busy = true; updateSavebar();
+    show('progress', true);
+    const bar = $('progressBar'), txt = $('progressText');
+    const added = [];
+    const changes = [];
+    try {
+      for (let i = 0; i < files.length; i++) {
+        txt.textContent = `Préparation ${i + 1}/${files.length} : ${files[i].name}`;
+        bar.value = (i / files.length) * 40;
+        const { blob, ext } = await prepare(files[i]);
+        if (blob.size > 40e6) throw new Error(`${files[i].name} est trop volumineuse (max 40 Mo).`);
+        const base = slugify(files[i].name.replace(/\.[^.]+$/, ''));
+        const path = `${C.imagesDir}/${base}-${Date.now().toString(36)}${i.toString(36)}.${ext}`;
+        changes.push({ path, base64: await blobToB64(blob) });
+        added.push({ file: path, name: files[i].name, visible: true, preview: URL.createObjectURL(blob) });
+      }
+      const before = config.images;
+      config.images = config.images.concat(added);
+      const json = cleanConfig();
+      changes.push({ path: C.configPath, content: json });
+      try {
+        await commitFiles(changes, `Ajout de ${added.length} image(s)`, (n, total) => {
+          txt.textContent = `Envoi vers GitHub… ${Math.min(n, added.length)}/${added.length}`;
+          bar.value = 40 + (n / total) * 55;
+        });
+      } catch (e) { config.images = before; throw e; }
+      savedJson = json;
+      bar.value = 100;
+      toast(`${added.length} image(s) ajoutée(s) et affichée(s).`);
+    } catch (e) {
+      added.forEach((a) => URL.revokeObjectURL(a.preview));
+      handleError(e, "Échec de l'envoi");
+    } finally {
+      busy = false;
+      show('progress', false);
+      $('fileInput').value = '';
+      render();
+    }
+  }
+
+  function handleError(e, prefix) {
+    console.error(e);
+    if (e.status === 401) { logout(); toast('Jeton invalide ou expiré. Reconnectez-vous.', true, 8000); return; }
+    if (e.status === 409 || e.status === 422) {
+      toast(`${prefix} : le dépôt a changé entre-temps. Rechargez la page et réessayez.`, true, 9000); return;
+    }
+    toast(`${prefix} : ${e.message}`, true, 9000);
+  }
+
+  function logout() {
+    store.del(TOKEN_KEY);
+    token = '';
+    config = null;
+    show('app', false); show('logoutBtn', false); show('savebar', false); show('loading', false);
+    show('loginCard', true);
+  }
+
+  async function start() {
+    if (!token) { show('loading', false); show('loginCard', true); return; }
+    show('loginCard', false);
+    try { await load(); }
+    catch (e) {
+      show('loading', false);
+      if (e.status === 401 || e.status === 403 || e.status === 404) {
+        logout();
+        toast(e.status === 404 ? "Dépôt ou branche introuvable avec ce jeton (le dépôt doit contenir au moins un commit)." : e.message.startsWith('GitHub') ? 'Jeton refusé par GitHub.' : e.message, true, 9000);
+      } else {
+        toast(`Erreur de chargement : ${e.message}`, true, 9000);
+      }
+    }
+  }
+
+  // ---------- Événements ----------
+  $('loginForm').onsubmit = (ev) => {
+    ev.preventDefault();
+    const v = $('tokenInput').value.trim();
+    if (!v) return;
+    token = v; store.set(TOKEN_KEY, v); $('tokenInput').value = '';
+    start();
+  };
+  $('logoutBtn').onclick = () => {
+    if (isDirty() && !confirm('Des modifications ne sont pas publiées. Se déconnecter quand même ?')) return;
+    logout();
+  };
+  $('publishBtn').onclick = publish;
+  $('discardBtn').onclick = () => {
+    const previews = new Map(config.images.map((im) => [im.file, im.preview]));
+    config = JSON.parse(savedJson);
+    config.images.forEach((im) => { if (previews.get(im.file)) im.preview = previews.get(im.file); });
+    render();
+  };
+  $('duration').onchange = () => {
+    const v = Math.max(2, Math.min(3600, Math.round(Number($('duration').value) || 8)));
+    config.duration = v; render();
+  };
+  $('fit').onchange = () => { config.fit = $('fit').value; render(); };
+  $('shuffle').onchange = () => { config.shuffle = $('shuffle').checked; render(); };
+  $('allOn').onclick = () => { config.images.forEach((im) => (im.visible = true)); render(); };
+  $('allOff').onclick = () => { config.images.forEach((im) => (im.visible = false)); render(); };
+
+  const drop = $('drop');
+  drop.onclick = () => $('fileInput').click();
+  drop.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('fileInput').click(); } };
+  $('fileInput').onchange = (e) => upload(e.target.files);
+  ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', (e) => upload(e.dataTransfer.files));
+  // Empêche le navigateur d'ouvrir une image lâchée à côté de la zone.
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
+  window.addEventListener('beforeunload', (e) => { if (isDirty() || busy) { e.preventDefault(); e.returnValue = ''; } });
+
+  start();
+})();
+</script>
+</body>
+</html>
