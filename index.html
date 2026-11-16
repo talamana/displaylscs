@@ -151,9 +151,14 @@
 
   <!-- Gestion -->
   <section id="app" class="hidden">
+    <form id="linkForm" class="card row" style="padding:14px 16px">
+      <input id="linkInput" type="text" inputmode="url" placeholder="Coller le lien d'une image (https://…)" autocomplete="off" style="flex:1;min-width:240px">
+      <button id="linkBtn" class="primary" type="submit">Ajouter le lien</button>
+    </form>
+
     <div id="drop" tabindex="0" role="button">
-      <strong>Déposez des images ici</strong>
-      <span class="muted">ou cliquez pour choisir des fichiers (JPG, PNG, WebP, GIF…)</span>
+      <strong>…ou déposez des fichiers images ici</strong>
+      <span class="muted">ou cliquez pour les choisir (JPG, PNG, WebP, GIF…)</span>
       <input id="fileInput" type="file" accept="image/*" multiple hidden>
     </div>
 
@@ -323,8 +328,8 @@
     // Normalisation : on retire les entrées sans fichier, on ajoute (masquées) les images présentes mais inconnues.
     cfg = Object.assign(defaultConfig(), cfg);
     const fileSet = new Set(files);
-    cfg.images = (cfg.images || []).filter((im) => im && fileSet.has(im.file));
-    const known = new Set(cfg.images.map((im) => im.file));
+    cfg.images = (cfg.images || []).filter((im) => im && (im.url || fileSet.has(im.file)));
+    const known = new Set(cfg.images.map((im) => im.file).filter(Boolean));
     for (const f of files) if (!known.has(f)) cfg.images.push({ file: f, name: f.split('/').pop(), visible: false });
     config = cfg;
     savedJson = cleanConfig();
@@ -361,9 +366,9 @@
             </span>
           </div>
         </div>`;
-      el.querySelector('img').src = im.preview || rawUrl(im.file);
-      el.querySelector('.name').textContent = im.name || im.file;
-      el.querySelector('.name').title = im.name || im.file;
+      el.querySelector('img').src = im.preview || im.url || rawUrl(im.file);
+      el.querySelector('.name').textContent = (im.url ? '🔗 ' : '') + (im.name || im.url || im.file);
+      el.querySelector('.name').title = im.url || im.name || im.file;
       const toggle = () => { im.visible = !im.visible; render(); };
       el.querySelector('.thumb').onclick = toggle;
       el.querySelector('input').onchange = toggle;
@@ -416,13 +421,16 @@
   async function removeImage(i) {
     if (busy) return;
     const im = config.images[i];
-    if (!confirm(`Supprimer définitivement « ${im.name || im.file} » ?`)) return;
+    const label = im.name || im.url || im.file;
+    if (!confirm(`Supprimer définitivement « ${label} » ?`)) return;
     busy = true; updateSavebar();
     const backup = config.images.slice();
     config.images.splice(i, 1);
     try {
       const json = cleanConfig();
-      await commitFiles([{ path: im.file, delete: true }, { path: C.configPath, content: json }], `Suppression de ${im.name || im.file}`);
+      const changes = [{ path: C.configPath, content: json }];
+      if (im.file) changes.unshift({ path: im.file, delete: true });
+      await commitFiles(changes, `Suppression de ${label}`);
       savedJson = json;
       toast('Image supprimée.');
     } catch (e) {
@@ -505,6 +513,46 @@
     }
   }
 
+  function testImage(url) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const t = setTimeout(() => { img.src = ''; resolve(false); }, 15000);
+      img.onload = () => { clearTimeout(t); resolve(img.naturalWidth > 0); };
+      img.onerror = () => { clearTimeout(t); resolve(false); };
+      img.src = url;
+    });
+  }
+
+  function nameFromUrl(url) {
+    try {
+      const u = new URL(url);
+      const last = decodeURIComponent(u.pathname.split('/').filter(Boolean).pop() || '');
+      return last || u.hostname;
+    } catch { return url; }
+  }
+
+  async function addLink(ev) {
+    ev.preventDefault();
+    if (busy) { toast('Une opération est déjà en cours…', true); return; }
+    let url = $('linkInput').value.trim();
+    if (!url) return;
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    try { url = new URL(url).href; } catch { toast("Ce lien n'est pas valide.", true); return; }
+    if (config.images.some((im) => im.url === url)) { toast('Cette image est déjà dans la liste.', true); return; }
+    const btn = $('linkBtn');
+    btn.disabled = true; btn.textContent = 'Vérification…';
+    const ok = await testImage(url);
+    btn.disabled = false; btn.textContent = 'Ajouter le lien';
+    if (!ok) {
+      toast("Impossible d'afficher cette image. Le lien doit mener directement à l'image (clic droit sur l'image → « Copier l'adresse de l'image »).", true, 10000);
+      return;
+    }
+    config.images.push({ url, name: nameFromUrl(url), visible: true });
+    $('linkInput').value = '';
+    render();
+    await publish();
+  }
+
   function handleError(e, prefix) {
     console.error(e);
     if (e.status === 401) { logout(); toast('Jeton invalide ou expiré. Reconnectez-vous.', true, 8000); return; }
@@ -550,6 +598,7 @@
     logout();
   };
   $('publishBtn').onclick = publish;
+  $('linkForm').onsubmit = addLink;
   $('discardBtn').onclick = () => {
     const previews = new Map(config.images.map((im) => [im.file, im.preview]));
     config = JSON.parse(savedJson);

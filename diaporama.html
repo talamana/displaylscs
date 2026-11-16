@@ -83,7 +83,9 @@
     duration = Math.max(2, Number(cfg.duration) || 8) * 1000;
     shuffle = !!cfg.shuffle;
     document.body.classList.toggle('cover', cfg.fit === 'cover');
-    const files = (cfg.images || []).filter((im) => im && im.visible && im.file).map((im) => im.file);
+    // Chaque entrée est soit un lien externe (url), soit un fichier du dépôt (file).
+    const files = (cfg.images || []).filter((im) => im && im.visible && (im.url || im.file))
+      .map((im) => im.url || encodeURI(im.file));
     const key = JSON.stringify([files, shuffle]);
     if (key === lastKey) return;
     lastKey = key;
@@ -138,7 +140,7 @@
       const file = playlist[n];
       if (file === currentFile && playlist.length > 1) continue;
       try {
-        await loadImage(encodeURI(file));
+        await loadImage(file);
       } catch (e) {
         console.warn(e.message);
         if (token !== showing) return;
@@ -146,7 +148,7 @@
       }
       if (token !== showing) return;
       const back = 1 - front;
-      layers[back].src = encodeURI(file);
+      layers[back].src = file;
       layers[back].classList.add('show');
       layers[front].classList.remove('show');
       front = back;
@@ -154,7 +156,7 @@
       schedule();
       // Précharge la suivante.
       const pre = playlist[(current + 1) % playlist.length];
-      if (pre && pre !== file) new Image().src = encodeURI(pre);
+      if (pre && pre !== file) new Image().src = pre;
       return;
     }
     if (token === showing && !currentFile) setMessage('Les images sélectionnées sont introuvables (publication en cours ?).');

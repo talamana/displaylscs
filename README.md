@@ -2,10 +2,10 @@
 
 Petit site statique (GitHub Pages) pour gérer un écran d'affichage :
 
-- **`index.html`** – page de gestion : envoyer des images, choisir lesquelles sont affichées, l'ordre, la durée par image, puis **Publier**.
+- **`index.html`** – page de gestion : ajouter des images par lien (ou en envoyant des fichiers), choisir lesquelles sont affichées, l'ordre, la durée par image, puis **Publier**.
 - **`diaporama.html`** – page à ouvrir sur l'écran : affiche uniquement les images sélectionnées en diaporama plein écran, et se met à jour toute seule (vérification toutes les 30 s).
 
-Les images sont enregistrées dans le dossier `images/` du dépôt et la sélection dans `config.json`. Tout passe par l'API GitHub, il n'y a aucun serveur à gérer.
+Les liens et la sélection sont enregistrés dans `config.json` ; les fichiers envoyés vont dans le dossier `images/`. Tout passe par l'API GitHub, il n'y a aucun serveur à gérer.
 
 ## Mise en route
 
@@ -22,7 +22,8 @@ Les images sont enregistrées dans le dossier `images/` du dépôt et la sélect
 
 | Page de gestion | |
 |---|---|
-| Glisser-déposer / cliquer sur la zone | Ajoute les images (affichées par défaut, publiées immédiatement) |
+| Coller un lien + « Ajouter le lien » | Ajoute l'image (le lien doit pointer directement vers l'image) |
+| Glisser-déposer / cliquer sur la zone | Envoie des fichiers images dans le dépôt |
 | Clic sur une vignette ou interrupteur | Affiche / masque l'image |
 | ↑ ↓ | Change l'ordre de passage |
 | ✕ | Supprime l'image du dépôt |
