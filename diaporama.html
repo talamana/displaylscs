@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Diaporama</title>
+<title>Écran</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect x=%222%22 y=%225%22 width=%2228%22 height=%2220%22 rx=%223%22 fill=%22%231f6f5c%22/%3E%3Cpath d=%22M6 21l6-7 4 4 3-3 7 6z%22 fill=%22%23fff%22/%3E%3C/svg%3E">
 <script src="config.js"></script>
 <style>
@@ -12,160 +12,129 @@
   body.idle { cursor: none; }
   .slide {
     position: fixed; inset: 0; width: 100%; height: 100%;
-    object-fit: contain; opacity: 0; transition: opacity 1.2s ease;
+    object-fit: contain; opacity: 0; transition: opacity .6s ease;
     user-select: none; -webkit-user-drag: none;
   }
   .slide.show { opacity: 1; }
   body.cover .slide { object-fit: cover; }
-  #msg {
-    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-    color: #777; font: 18px system-ui, sans-serif; text-align: center; padding: 20px;
-  }
   #hint {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
     background: rgba(0,0,0,.65); color: #eee; font: 14px system-ui, sans-serif;
-    padding: 8px 16px; border-radius: 99px; transition: opacity .4s; pointer-events: none;
+    padding: 8px 16px; border-radius: 99px; transition: opacity .4s; pointer-events: none; white-space: nowrap;
   }
   body.idle #hint { opacity: 0; }
 </style>
 </head>
-<body class="idle">
+<body>
 <img class="slide" id="a" alt="">
 <img class="slide" id="b" alt="">
-<div id="msg" hidden></div>
-<div id="hint">Cliquez ou appuyez sur F pour le plein écran · ← → pour naviguer · Espace pour pause</div>
+<div id="hint">Cliquez ou appuyez sur F pour le plein écran</div>
 
 <script>
 (() => {
   'use strict';
   const C = window.DISPLAY_CONFIG || {};
-  const REFRESH = Math.max(10, C.refreshSeconds || 30) * 1000;
+  const POLL = Math.max(2, C.pollSeconds || 3) * 1000;
+  const API_URL = `https://api.github.com/repos/${C.owner}/${C.repo}/contents/${C.configPath}?ref=${C.branch}`;
   const layers = [document.getElementById('a'), document.getElementById('b')];
-  const msg = document.getElementById('msg');
   let front = 0;
-  let playlist = [];        // chemins des images à afficher
-  let current = -1;         // index dans la playlist
-  let currentFile = null;
-  let duration = 8000;
-  let shuffle = false;
-  let timer = null;
-  let paused = false;
-  let lastKey = '';
+  let shownSrc = null;      // image actuellement affichée (null = écran noir)
+  let wantedSrc;            // dernière image demandée
+  let etag = null;
+  let apiPausedUntil = 0;   // si l'API GitHub limite les requêtes, on passe par la copie du site
 
-  function setMessage(text) {
-    msg.hidden = !text;
-    msg.textContent = text || '';
+  const encPath = (p) => p.split('/').map(encodeURIComponent).join('/');
+  function srcFromConfig(cfg) {
+    const id = cfg.current;
+    if (!id) return null;
+    const im = (cfg.images || []).find((x) => x && (x.url || x.file) === id);
+    if (!im) return null;
+    return im.url || `https://raw.githubusercontent.com/${C.owner}/${C.repo}/${C.branch}/${encPath(im.file)}`;
   }
 
-  function shuffled(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
+  // Lecture via l'API GitHub : à jour immédiatement. Les réponses « pas de changement » (304)
+  // ne consomment pas de quota.
+  async function fetchFromApi() {
+    const headers = { Accept: 'application/vnd.github.raw+json' };
+    if (etag) headers['If-None-Match'] = etag;
+    const res = await fetch(API_URL, { headers, cache: 'no-store' });
+    if (res.status === 304) return null;
+    if (res.status === 403 || res.status === 429) {
+      const reset = Number(res.headers.get('X-RateLimit-Reset')) * 1000;
+      apiPausedUntil = reset > Date.now() ? reset + 1000 : Date.now() + 10 * 60 * 1000;
+      throw new Error('limite API');
     }
-    return a;
+    if (!res.ok) throw new Error('API ' + res.status);
+    etag = res.headers.get('ETag');
+    return res.json();
   }
-
-  async function fetchConfig() {
-    const res = await fetch(`${C.configPath || 'config.json'}?t=${Date.now()}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error('config ' + res.status);
+  // Solution de secours : le config.json publié avec le site (mis à jour avec ~1 min de retard).
+  async function fetchFromSite() {
+    const res = await fetch(`${C.configPath}?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('site ' + res.status);
     return res.json();
   }
 
-  async function refresh() {
-    let cfg;
-    try { cfg = await fetchConfig(); }
-    catch (e) {
-      console.warn('Impossible de lire la configuration', e);
-      if (!playlist.length) setMessage('Impossible de charger la configuration. Nouvel essai bientôt…');
-      return;
+  let polling = false;
+  async function poll() {
+    if (polling) return;
+    polling = true;
+    try {
+      let cfg;
+      if (Date.now() >= apiPausedUntil) {
+        try { cfg = await fetchFromApi(); }
+        catch (e) { console.warn(e.message); cfg = await fetchFromSite(); }
+      } else {
+        cfg = await fetchFromSite();
+      }
+      if (cfg) apply(srcFromConfig(cfg), cfg.fit);
+    } catch (e) {
+      console.warn('Lecture impossible, nouvel essai bientôt', e);
+    } finally {
+      polling = false;
     }
-    duration = Math.max(2, Number(cfg.duration) || 8) * 1000;
-    shuffle = !!cfg.shuffle;
-    document.body.classList.toggle('cover', cfg.fit === 'cover');
-    // Chaque entrée est soit un lien externe (url), soit un fichier du dépôt (file).
-    const files = (cfg.images || []).filter((im) => im && im.visible && (im.url || im.file))
-      .map((im) => im.url || encodeURI(im.file));
-    const key = JSON.stringify([files, shuffle]);
-    if (key === lastKey) return;
-    lastKey = key;
-
-    playlist = shuffle ? shuffled(files) : files;
-    if (!playlist.length) {
-      clearTimeout(timer);
-      layers.forEach((l) => { l.classList.remove('show'); });
-      currentFile = null;
-      current = -1;
-      setMessage('Aucune image sélectionnée.');
-      return;
-    }
-    setMessage('');
-    // Si l'image actuelle est toujours dans la liste, on continue depuis elle.
-    const idx = currentFile ? playlist.indexOf(currentFile) : -1;
-    if (idx >= 0) { current = idx; schedule(); }
-    else { current = -1; next(); }
-  }
-
-  function schedule() {
-    clearTimeout(timer);
-    if (!paused && playlist.length > 1) timer = setTimeout(next, duration);
   }
 
   function loadImage(src) {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.onload = () => (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(() => resolve(src));
+      img.onload = () => (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(resolve);
       img.onerror = () => reject(new Error('Image introuvable : ' + src));
       img.src = src;
     });
   }
 
-  let showing = 0; // jeton pour ignorer les chargements obsolètes
-  async function go(step) {
-    clearTimeout(timer);
-    if (!playlist.length) return;
-    const token = ++showing;
-    for (let tries = 0; tries < playlist.length; tries++) {
-      let n = current + step;
-      if (n >= playlist.length) {
-        n = 0;
-        if (shuffle && playlist.length > 2) {
-          const last = playlist[playlist.length - 1];
-          playlist = shuffled(playlist);
-          if (playlist[0] === last) playlist.push(playlist.shift());
-        }
-      }
-      if (n < 0) n = playlist.length - 1;
-      current = n;
-      const file = playlist[n];
-      if (file === currentFile && playlist.length > 1) continue;
-      try {
-        await loadImage(file);
-      } catch (e) {
+  async function apply(src, fit) {
+    document.body.classList.toggle('cover', fit === 'cover');
+    if (src === wantedSrc) return;
+    wantedSrc = src;
+    if (src === shownSrc) return;
+    if (src) {
+      try { await loadImage(src); }
+      catch (e) {
         console.warn(e.message);
-        if (token !== showing) return;
-        continue;
+        if (wantedSrc === src) wantedSrc = undefined; // on réessaiera au prochain passage
+        return;
       }
-      if (token !== showing) return;
+      if (wantedSrc !== src) return; // un autre choix est arrivé entre-temps
       const back = 1 - front;
-      layers[back].src = file;
+      layers[back].src = src;
       layers[back].classList.add('show');
       layers[front].classList.remove('show');
       front = back;
-      currentFile = file;
-      schedule();
-      // Précharge la suivante.
-      const pre = playlist[(current + 1) % playlist.length];
-      if (pre && pre !== file) new Image().src = pre;
-      return;
+    } else {
+      layers.forEach((l) => l.classList.remove('show'));
     }
-    if (token === showing && !currentFile) setMessage('Les images sélectionnées sont introuvables (publication en cours ?).');
-    schedule();
+    shownSrc = src;
   }
-  const next = () => go(1);
-  const prev = () => go(-1);
 
-  // ---------- Plein écran, clavier, souris ----------
+  // Mise à jour instantanée si la page de gestion est ouverte dans ce même navigateur.
+  if ('BroadcastChannel' in window) {
+    const ch = new BroadcastChannel(`displaylscs_${C.owner}_${C.repo}`);
+    ch.onmessage = (e) => { if (e.data) apply(e.data.src, e.data.fit); };
+  }
+
+  // ---------- Plein écran, souris ----------
   function toggleFullscreen() {
     const d = document;
     if (!d.fullscreenElement && !d.webkitFullscreenElement) {
@@ -176,37 +145,28 @@
     }
   }
   document.addEventListener('click', toggleFullscreen);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'f' || e.key === 'F') toggleFullscreen();
-    else if (e.key === 'ArrowRight') next();
-    else if (e.key === 'ArrowLeft') prev();
-    else if (e.key === ' ') { e.preventDefault(); paused = !paused; paused ? clearTimeout(timer) : schedule(); flashHint(paused ? 'Pause' : 'Lecture'); }
-  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'f' || e.key === 'F') toggleFullscreen(); });
 
-  const hint = document.getElementById('hint');
-  const defaultHint = hint.textContent;
   let idleTimer;
   function wake() {
     document.body.classList.remove('idle');
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => { document.body.classList.add('idle'); hint.textContent = defaultHint; }, 3000);
+    idleTimer = setTimeout(() => document.body.classList.add('idle'), 3000);
   }
-  function flashHint(text) { hint.textContent = text; wake(); }
   document.addEventListener('mousemove', wake);
   document.addEventListener('touchstart', wake, { passive: true });
   wake();
 
   // Garde l'écran allumé quand c'est possible.
-  let wakeLock = null;
   async function keepAwake() {
-    try { if ('wakeLock' in navigator && document.visibilityState === 'visible') wakeLock = await navigator.wakeLock.request('screen'); }
+    try { if ('wakeLock' in navigator && document.visibilityState === 'visible') await navigator.wakeLock.request('screen'); }
     catch {}
   }
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { keepAwake(); refresh(); } });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { keepAwake(); poll(); } });
   keepAwake();
 
-  refresh();
-  setInterval(refresh, REFRESH);
+  poll();
+  setInterval(poll, POLL);
   // Rechargement complet toutes les 6 h pour récupérer d'éventuelles mises à jour de la page.
   setTimeout(() => location.reload(), 6 * 3600 * 1000);
 })();

@@ -16,7 +16,6 @@
     --accent: #1f6f5c;
     --accent-ink: #ffffff;
     --danger: #b3261e;
-    --warn-bg: #fff4d6;
     --radius: 12px;
   }
   * { box-sizing: border-box; }
@@ -31,7 +30,7 @@
   }
   header h1 { font-size: 18px; margin: 0; letter-spacing: .2px; }
   header .sub { color: var(--muted); font-size: 13px; }
-  main { max-width: 1180px; margin: 0 auto; padding: 24px 28px 120px; }
+  main { max-width: 1180px; margin: 0 auto; padding: 24px 28px 80px; }
   a { color: var(--accent); }
   button, .btn {
     font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
@@ -42,80 +41,80 @@
   button:disabled { opacity: .5; cursor: default; }
   .primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   .primary:hover { filter: brightness(1.08); border-color: var(--accent); }
-  .danger { color: var(--danger); }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
   .card h2 { font-size: 16px; margin: 0 0 12px; }
   .hidden { display: none !important; }
   .muted { color: var(--muted); }
-  input[type=password], input[type=text], input[type=number], select {
+  input[type=password], input[type=text], select {
     font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
   }
   ol.steps { padding-left: 20px; margin: 8px 0 16px; }
   ol.steps li { margin: 4px 0; }
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
+  /* À l'écran maintenant */
+  #live { display: grid; grid-template-columns: minmax(220px, 360px) 1fr; gap: 20px; align-items: center; }
+  #liveScreen {
+    aspect-ratio: 16/9; background: #000; border-radius: 8px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px;
+    box-shadow: inset 0 0 0 6px #222;
+  }
+  #liveScreen img { width: 100%; height: 100%; object-fit: contain; }
+  #liveScreen.cover img { object-fit: cover; }
+  #liveName { font-weight: 600; font-size: 17px; word-break: break-all; }
+  #status { font-size: 14px; margin: 6px 0 14px; }
+  #status.ok { color: var(--accent); }
+  #status.err { color: var(--danger); }
+  .liveLabel { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: var(--muted); }
+
+  .add { display: grid; grid-template-columns: 1fr auto; gap: 12px; margin-bottom: 20px; }
+  .add form { margin: 0; }
   #drop {
     border: 2px dashed #c9c6bb; border-radius: var(--radius); background: var(--panel);
-    padding: 34px 20px; text-align: center; cursor: pointer; transition: .15s;
-    margin-bottom: 20px;
+    padding: 0 18px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    color: var(--muted); font-size: 14px; transition: .15s; min-height: 58px;
   }
-  #drop.over { border-color: var(--accent); background: #eef6f3; }
-  #drop strong { display: block; font-size: 16px; margin-bottom: 4px; }
+  #drop.over { border-color: var(--accent); background: #eef6f3; color: var(--accent); }
 
   .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 14px; }
-  .toolbar .settings { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
   .toolbar label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 14px; }
-  .toolbar input[type=number] { width: 70px; }
 
-  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
   .item {
     background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
-    display: flex; flex-direction: column; transition: .15s;
+    display: flex; flex-direction: column; transition: .15s; position: relative;
   }
-  .item.off .thumb img { opacity: .35; filter: grayscale(1); }
-  .item.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-  .thumb { aspect-ratio: 16/10; background: #2a2a28; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
-  .thumb img { width: 100%; height: 100%; object-fit: contain; transition: .15s; }
+  .item:hover { border-color: #b9b6aa; }
+  .item.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .thumb {
+    aspect-ratio: 16/10; background: #2a2a28; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative; border: 0; padding: 0; width: 100%; border-radius: 0;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: contain; }
+  .thumb .hover {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.45); color: #fff; font-weight: 600; opacity: 0; transition: .15s;
+  }
+  .thumb:hover .hover, .thumb:focus-visible .hover { opacity: 1; }
+  .item.on .thumb .hover { display: none; }
   .badge {
     position: absolute; top: 8px; left: 8px; background: var(--accent); color: #fff;
-    font-size: 12px; padding: 2px 8px; border-radius: 99px;
+    font-size: 12px; padding: 2px 10px; border-radius: 99px; font-weight: 600;
   }
-  .item.off .badge { background: rgba(0,0,0,.6); }
-  .meta { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .meta { padding: 8px 8px 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .actions { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-  .actions .btns { display: inline-flex; gap: 4px; flex-shrink: 0; }
-  .actions button { padding: 4px 8px; font-size: 13px; }
-
-  .switch { position: relative; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; }
-  .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
-  .switch .track { width: 36px; height: 20px; border-radius: 99px; background: #cfccc2; position: relative; transition: .15s; }
-  .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: .15s; }
-  .switch input:checked + .track { background: var(--accent); }
-  .switch input:checked + .track::after { left: 18px; }
-  .switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .del { padding: 3px 8px; font-size: 13px; color: var(--danger); flex-shrink: 0; }
 
   #empty { text-align: center; padding: 40px; }
-
-  #savebar {
-    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
-    background: var(--ink); color: #fff; padding: 10px 12px 10px 20px; border-radius: 14px;
-    display: flex; gap: 14px; align-items: center; box-shadow: 0 8px 30px rgba(0,0,0,.25); z-index: 20;
-  }
-  #savebar button { border-color: transparent; }
-  #savebar .ghost { background: transparent; color: #ddd; }
-
   #toast {
     position: fixed; right: 20px; top: 80px; max-width: 380px; padding: 12px 16px; border-radius: 10px;
     background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 30px rgba(0,0,0,.12); z-index: 30;
   }
   #toast.error { border-color: var(--danger); color: var(--danger); }
-  #progress { margin-bottom: 20px; }
-  progress { width: 100%; height: 8px; accent-color: var(--accent); }
-  .note { background: var(--warn-bg); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
-  @media (max-width: 600px) {
+  @media (max-width: 700px) {
     header, main { padding-left: 16px; padding-right: 16px; }
-    #grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    #live, .add { grid-template-columns: 1fr; }
+    #grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   }
 </style>
 </head>
@@ -126,7 +125,7 @@
     <div class="sub" id="repoLabel"></div>
   </div>
   <div class="row">
-    <a class="btn" href="diaporama.html" target="_blank" rel="noopener">Ouvrir le diaporama ↗</a>
+    <a class="btn" href="diaporama.html" target="_blank" rel="noopener">Ouvrir l'écran ↗</a>
     <button id="logoutBtn" class="hidden" title="Oublier le jeton sur cet appareil">Se déconnecter</button>
   </div>
 </header>
@@ -135,7 +134,7 @@
   <!-- Connexion -->
   <section id="loginCard" class="card hidden">
     <h2>Connexion au dépôt GitHub</h2>
-    <p class="muted">Les images sont enregistrées directement dans le dépôt. Pour cela, cette page a besoin d'un jeton d'accès GitHub (à faire une seule fois par appareil) :</p>
+    <p class="muted">Le choix de l'image est enregistré directement dans le dépôt. Pour cela, cette page a besoin d'un jeton d'accès GitHub (à faire une seule fois par appareil) :</p>
     <ol class="steps">
       <li>Ouvrez <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com → Fine-grained token</a>.</li>
       <li><b>Repository access</b> : « Only select repositories » → choisissez <b id="repoName"></b>.</li>
@@ -149,52 +148,49 @@
     <p class="muted" style="font-size:13px;margin-bottom:0">Le jeton reste uniquement dans ce navigateur.</p>
   </section>
 
-  <!-- Gestion -->
   <section id="app" class="hidden">
-    <form id="linkForm" class="card row" style="padding:14px 16px">
-      <input id="linkInput" type="text" inputmode="url" placeholder="Coller le lien d'une image (https://…)" autocomplete="off" style="flex:1;min-width:240px">
-      <button id="linkBtn" class="primary" type="submit">Ajouter le lien</button>
-    </form>
-
-    <div id="drop" tabindex="0" role="button">
-      <strong>…ou déposez des fichiers images ici</strong>
-      <span class="muted">ou cliquez pour les choisir (JPG, PNG, WebP, GIF…)</span>
-      <input id="fileInput" type="file" accept="image/*" multiple hidden>
-    </div>
-
-    <div id="progress" class="card hidden">
-      <div id="progressText" style="margin-bottom:8px">Envoi…</div>
-      <progress id="progressBar" max="100" value="0"></progress>
-    </div>
-
-    <div class="toolbar">
-      <div><b id="countOn">0</b> <span class="muted">image(s) affichée(s) sur</span> <b id="countAll">0</b></div>
-      <div class="settings">
-        <label>Durée par image <input id="duration" type="number" min="2" max="3600" step="1"> s</label>
-        <label>Cadrage
-          <select id="fit">
-            <option value="contain">Image entière</option>
-            <option value="cover">Remplir l'écran</option>
-          </select>
-        </label>
-        <label><input id="shuffle" type="checkbox"> Ordre aléatoire</label>
-        <button id="allOn">Tout afficher</button>
-        <button id="allOff">Tout masquer</button>
+    <!-- À l'écran maintenant -->
+    <div class="card" id="live">
+      <div id="liveScreen"></div>
+      <div>
+        <div class="liveLabel">À l'écran maintenant</div>
+        <div id="liveName"></div>
+        <div id="status" class="muted"></div>
+        <div class="row">
+          <button id="blackBtn">Écran noir</button>
+          <label class="muted" style="display:inline-flex;gap:6px;align-items:center;font-size:14px">Cadrage
+            <select id="fit">
+              <option value="contain">Image entière</option>
+              <option value="cover">Remplir l'écran</option>
+            </select>
+          </label>
+        </div>
       </div>
     </div>
 
+    <!-- Ajouter -->
+    <div class="add">
+      <form id="linkForm" class="row">
+        <input id="linkInput" type="text" inputmode="url" placeholder="Coller le lien d'une image (https://…)" autocomplete="off" style="flex:1;min-width:220px;padding:14px 12px">
+        <button id="linkBtn" class="primary" type="submit" style="padding:14px 16px">Ajouter</button>
+      </form>
+      <div id="drop" tabindex="0" role="button">ou déposer / choisir un fichier
+        <input id="fileInput" type="file" accept="image/*" multiple hidden>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="muted">Cliquez sur une image pour l'afficher immédiatement à l'écran.</div>
+      <div class="muted"><b id="countAll">0</b> image(s)</div>
+    </div>
+
     <div id="grid"></div>
-    <div id="empty" class="card hidden muted">Aucune image pour l'instant. Ajoutez-en avec la zone ci-dessus.</div>
+    <div id="empty" class="card hidden muted">Aucune image pour l'instant. Collez un lien ci-dessus.</div>
   </section>
 
   <div id="loading" class="card muted">Chargement…</div>
 </main>
 
-<div id="savebar" class="hidden">
-  <span id="saveText">Modifications non publiées</span>
-  <button id="discardBtn" class="ghost">Annuler</button>
-  <button id="publishBtn" class="primary">Publier</button>
-</div>
 <div id="toast" class="hidden"></div>
 
 <script>
@@ -204,8 +200,9 @@
   const API = `https://api.github.com/repos/${C.owner}/${C.repo}`;
   const IMG_RE = /\.(jpe?g|png|gif|webp|avif|bmp|svg)$/i;
   const MAX_SIDE = 2560;          // taille max (px) après redimensionnement
-  const MAX_UNTOUCHED = 1.5e6;    // en dessous, l'image est envoyée telle quelle
+  const MAX_UNTOUCHED = 1.5e6;    // en dessous, le fichier est envoyé tel quel
   const $ = (id) => document.getElementById(id);
+  const channel = 'BroadcastChannel' in window ? new BroadcastChannel(`displaylscs_${C.owner}_${C.repo}`) : null;
 
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -215,10 +212,9 @@
   const TOKEN_KEY = `displaylscs_token_${C.owner}_${C.repo}`;
   let token = store.get(TOKEN_KEY) || '';
 
-  let headSha = null;       // dernier commit connu
-  let config = null;        // état local (modifiable)
-  let savedJson = '';       // dernier état publié
-  let busy = false;
+  let headSha = null;   // dernier commit connu
+  let config = null;    // état local
+  let savedJson = '';   // dernier état enregistré sur GitHub
 
   $('repoLabel').textContent = `${C.owner}/${C.repo}`;
   $('repoName').textContent = C.repo;
@@ -232,9 +228,10 @@
     toast._t = setTimeout(() => t.classList.add('hidden'), ms);
   }
   const show = (id, on) => $(id).classList.toggle('hidden', !on);
+  function setStatus(text, cls = 'muted') { const s = $('status'); s.textContent = text; s.className = cls; }
 
   async function gh(path, opts = {}) {
-    const url = path.startsWith('http') ? path : (path ? `${API}/${path}` : API);
+    const url = path ? `${API}/${path}` : API;
     const headers = {
       Authorization: `Bearer ${token}`,
       Accept: opts.accept || 'application/vnd.github+json',
@@ -271,18 +268,28 @@
     });
   }
   const encPath = (p) => p.split('/').map(encodeURIComponent).join('/');
-  const rawUrl = (path) => `https://raw.githubusercontent.com/${C.owner}/${C.repo}/${headSha}/${encPath(path)}`;
-  const configJson = () => JSON.stringify(config, null, 2) + '\n';
+  const idOf = (im) => im.url || im.file;
+  const srcOf = (im) => im.preview || im.url || `https://raw.githubusercontent.com/${C.owner}/${C.repo}/${headSha}/${encPath(im.file)}`;
+  // Adresse utilisée par l'écran (branche, pas de commit : toujours à jour).
+  const screenSrc = (im) => im.url || `https://raw.githubusercontent.com/${C.owner}/${C.repo}/${C.branch}/${encPath(im.file)}`;
+  const findCurrent = () => config.images.find((im) => idOf(im) === config.current) || null;
 
-  function defaultConfig() { return { duration: 8, fit: 'contain', shuffle: false, images: [] }; }
+  function defaultConfig() { return { current: null, fit: 'contain', images: [] }; }
+  function cleanConfig() {
+    const out = {
+      current: config.current || null,
+      fit: config.fit === 'cover' ? 'cover' : 'contain',
+      images: config.images.map((im) => (im.url ? { url: im.url, name: im.name } : { file: im.file, name: im.name })),
+    };
+    return JSON.stringify(out, null, 2) + '\n';
+  }
 
   // Un seul commit pour plusieurs fichiers (ajouts / suppressions).
-  async function commitFiles(files, message, onBlob) {
+  async function commitFiles(files, message) {
     const ref = await gh(`git/ref/heads/${C.branch}`);
     const parent = ref.object.sha;
     const parentCommit = await gh(`git/commits/${parent}`);
     const tree = [];
-    let n = 0;
     for (const f of files) {
       if (f.delete) {
         tree.push({ path: f.path, mode: '100644', type: 'blob', sha: null });
@@ -290,7 +297,6 @@
         const blob = await gh('git/blobs', { method: 'POST', body: { content: f.base64 ?? utf8ToB64(f.content), encoding: 'base64' } });
         tree.push({ path: f.path, mode: '100644', type: 'blob', sha: blob.sha });
       }
-      onBlob && onBlob(++n, files.length);
     }
     const newTree = await gh('git/trees', { method: 'POST', body: { base_tree: parentCommit.tree.sha, tree } });
     const commit = await gh('git/commits', { method: 'POST', body: { message, tree: newTree.sha, parents: [parent] } });
@@ -299,13 +305,37 @@
     return commit.sha;
   }
 
+  // File d'attente : les enregistrements partent un par un, et plusieurs clics rapides
+  // n'en font qu'un (seul le dernier choix compte).
+  let chain = Promise.resolve();
+  let pendingSave = null;   // enregistrement simple en attente (pas encore démarré)
+  let busyCount = 0;
+  function enqueue(task) {
+    busyCount++;
+    const p = chain.then(task).finally(() => { busyCount--; });
+    chain = p.catch(() => {});
+    return p;
+  }
+  function saveConfig(message, extraFiles = []) {
+    if (!extraFiles.length && pendingSave) return pendingSave;
+    const p = enqueue(async () => {
+      if (pendingSave === p) pendingSave = null;
+      const json = cleanConfig();
+      if (json === savedJson && !extraFiles.length) return;
+      await commitFiles([...extraFiles, { path: C.configPath, content: json }], message);
+      savedJson = json;
+    });
+    if (!extraFiles.length) pendingSave = p;
+    return p;
+  }
+
   // ---------- Chargement ----------
   async function load() {
     show('loading', true);
     const repo = await gh('');
     if (!repo.permissions || !repo.permissions.push) {
       const e = new Error("Ce jeton n'a pas le droit d'écrire dans le dépôt (Contents : Read and write).");
-      e.status = 403; throw e;
+      e.status = 403; e.custom = true; throw e;
     }
     const ref = await gh(`git/ref/heads/${C.branch}`);
     headSha = ref.object.sha;
@@ -325,119 +355,154 @@
       if (e.status !== 404) throw e;
     }
 
-    // Normalisation : on retire les entrées sans fichier, on ajoute (masquées) les images présentes mais inconnues.
-    cfg = Object.assign(defaultConfig(), cfg);
+    // Normalisation (et reprise d'une ancienne config éventuelle).
     const fileSet = new Set(files);
-    cfg.images = (cfg.images || []).filter((im) => im && (im.url || fileSet.has(im.file)));
-    const known = new Set(cfg.images.map((im) => im.file).filter(Boolean));
-    for (const f of files) if (!known.has(f)) cfg.images.push({ file: f, name: f.split('/').pop(), visible: false });
-    config = cfg;
+    const images = (cfg.images || []).filter((im) => im && (im.url || fileSet.has(im.file)));
+    const known = new Set(images.map((im) => im.file).filter(Boolean));
+    for (const f of files) if (!known.has(f)) images.push({ file: f, name: f.split('/').pop() });
+    let current = cfg.current || null;
+    if (current === undefined || (current && !images.some((im) => idOf(im) === current))) current = null;
+    config = { current, fit: cfg.fit === 'cover' ? 'cover' : 'contain', images };
     savedJson = cleanConfig();
+
     show('loading', false);
     show('app', true);
     show('logoutBtn', true);
+    setStatus('');
     render();
   }
 
   // ---------- Affichage ----------
-  function render() {
-    $('duration').value = config.duration;
+  function renderLive() {
+    const cur = findCurrent();
+    const scr = $('liveScreen');
+    scr.classList.toggle('cover', config.fit === 'cover');
+    scr.innerHTML = '';
+    if (cur) {
+      const img = document.createElement('img');
+      img.src = srcOf(cur); img.alt = '';
+      scr.appendChild(img);
+      $('liveName').textContent = cur.name || idOf(cur);
+    } else {
+      scr.textContent = 'Écran noir';
+      $('liveName').textContent = 'Rien (écran noir)';
+    }
     $('fit').value = config.fit;
-    $('shuffle').checked = !!config.shuffle;
+    $('blackBtn').disabled = !cur;
+  }
 
+  function render() {
+    renderLive();
     const grid = $('grid');
     grid.innerHTML = '';
-    config.images.forEach((im, i) => {
+    config.images.forEach((im) => {
+      const on = idOf(im) === config.current;
       const el = document.createElement('div');
-      el.className = 'item ' + (im.visible ? 'on' : 'off');
+      el.className = 'item' + (on ? ' on' : '');
       el.innerHTML = `
-        <div class="thumb" title="Cliquer pour afficher / masquer">
+        <button class="thumb" title="Afficher cette image à l'écran">
           <img loading="lazy" alt="">
-          <span class="badge">${im.visible ? 'Affichée' : 'Masquée'}</span>
-        </div>
+          <span class="hover">Afficher</span>
+          ${on ? '<span class="badge">À l\'écran</span>' : ''}
+        </button>
         <div class="meta">
           <div class="name"></div>
-          <div class="actions">
-            <label class="switch"><input type="checkbox" ${im.visible ? 'checked' : ''}><span class="track"></span>Afficher</label>
-            <span class="btns">
-              <button data-a="up" title="Monter" ${i === 0 ? 'disabled' : ''}>↑</button>
-              <button data-a="down" title="Descendre" ${i === config.images.length - 1 ? 'disabled' : ''}>↓</button>
-              <button data-a="del" class="danger" title="Supprimer">✕</button>
-            </span>
-          </div>
+          <button class="del" title="Supprimer de la liste">✕</button>
         </div>`;
-      el.querySelector('img').src = im.preview || im.url || rawUrl(im.file);
-      el.querySelector('.name').textContent = (im.url ? '🔗 ' : '') + (im.name || im.url || im.file);
-      el.querySelector('.name').title = im.url || im.name || im.file;
-      const toggle = () => { im.visible = !im.visible; render(); };
-      el.querySelector('.thumb').onclick = toggle;
-      el.querySelector('input').onchange = toggle;
-      el.querySelector('[data-a=up]').onclick = () => move(i, -1);
-      el.querySelector('[data-a=down]').onclick = () => move(i, 1);
-      el.querySelector('[data-a=del]').onclick = () => removeImage(i);
+      el.querySelector('img').src = srcOf(im);
+      el.querySelector('.name').textContent = (im.url ? '🔗 ' : '') + (im.name || idOf(im));
+      el.querySelector('.name').title = idOf(im);
+      el.querySelector('.thumb').onclick = () => select(idOf(im));
+      el.querySelector('.del').onclick = () => removeImage(im);
       grid.appendChild(el);
     });
-
-    const on = config.images.filter((im) => im.visible).length;
-    $('countOn').textContent = on;
     $('countAll').textContent = config.images.length;
     show('empty', config.images.length === 0);
-    updateSavebar();
-  }
-
-  function cleanConfig() {
-    // Les aperçus locaux (blob:) ne sont jamais publiés.
-    return JSON.stringify(config, (k, v) => (k === 'preview' ? undefined : v), 2) + '\n';
-  }
-  const isDirty = () => config && cleanConfig() !== savedJson;
-  function updateSavebar() {
-    show('savebar', isDirty() && !busy);
-  }
-
-  function move(i, d) {
-    const j = i + d;
-    if (j < 0 || j >= config.images.length) return;
-    [config.images[i], config.images[j]] = [config.images[j], config.images[i]];
-    render();
   }
 
   // ---------- Actions ----------
-  async function publish() {
-    if (busy) return;
-    busy = true; updateSavebar();
-    $('publishBtn').disabled = true;
+  async function select(id) {
+    if (config.current === id) return;
+    config.current = id;
+    render();
+    broadcast();
+    setStatus('Envoi à l\'écran…');
     try {
-      const json = cleanConfig();
-      await commitFiles([{ path: C.configPath, content: json }], 'Mise à jour de la sélection');
-      savedJson = json;
-      toast("Publié ✔ Le diaporama se mettra à jour d'ici une minute environ.");
+      await saveConfig('Image affichée : ' + (findCurrent()?.name || 'écran noir'));
+      if (config.current === id && busyCount === 0) setStatus("✔ Envoyé — l'écran se met à jour en quelques secondes.", 'ok');
     } catch (e) {
-      handleError(e, 'Échec de la publication');
-    } finally {
-      busy = false; $('publishBtn').disabled = false; updateSavebar();
+      handleError(e, "Échec de l'envoi");
+      setStatus("✖ Non envoyé. Réessayez.", 'err');
     }
   }
 
-  async function removeImage(i) {
-    if (busy) return;
-    const im = config.images[i];
-    const label = im.name || im.url || im.file;
-    if (!confirm(`Supprimer définitivement « ${label} » ?`)) return;
-    busy = true; updateSavebar();
-    const backup = config.images.slice();
-    config.images.splice(i, 1);
+  function broadcast() {
+    // Mise à jour instantanée si l'écran est ouvert dans ce même navigateur.
+    const cur = findCurrent();
+    try { channel && channel.postMessage({ src: cur ? screenSrc(cur) : null, fit: config.fit }); } catch {}
+  }
+
+  async function removeImage(im) {
+    const label = im.name || idOf(im);
+    if (!confirm(`Supprimer « ${label} » de la liste ?`)) return;
+    const wasCurrent = idOf(im) === config.current;
+    const backup = { images: config.images.slice(), current: config.current };
+    config.images = config.images.filter((x) => x !== im);
+    if (wasCurrent) { config.current = null; broadcast(); }
+    render();
     try {
-      const json = cleanConfig();
-      const changes = [{ path: C.configPath, content: json }];
-      if (im.file) changes.unshift({ path: im.file, delete: true });
-      await commitFiles(changes, `Suppression de ${label}`);
-      savedJson = json;
-      toast('Image supprimée.');
+      await saveConfig(`Suppression de ${label}`, im.file ? [{ path: im.file, delete: true }] : []);
+      toast(wasCurrent ? "Image supprimée — l'écran passe au noir." : 'Image supprimée.');
     } catch (e) {
-      config.images = backup;
+      config.images = backup.images; config.current = backup.current;
+      render();
       handleError(e, 'Échec de la suppression');
-    } finally {
-      busy = false; render();
+    }
+  }
+
+  function testImage(url) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const t = setTimeout(() => { img.src = ''; resolve(false); }, 15000);
+      img.onload = () => { clearTimeout(t); resolve(img.naturalWidth > 0); };
+      img.onerror = () => { clearTimeout(t); resolve(false); };
+      img.src = url;
+    });
+  }
+  function nameFromUrl(url) {
+    try {
+      const u = new URL(url);
+      const last = decodeURIComponent(u.pathname.split('/').filter(Boolean).pop() || '');
+      return last || u.hostname;
+    } catch { return url; }
+  }
+
+  async function addLink(ev) {
+    ev.preventDefault();
+    let url = $('linkInput').value.trim();
+    if (!url) return;
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    try { url = new URL(url).href; } catch { toast("Ce lien n'est pas valide.", true); return; }
+    if (config.images.some((im) => im.url === url)) { toast('Cette image est déjà dans la liste.', true); return; }
+    const btn = $('linkBtn');
+    btn.disabled = true; btn.textContent = 'Vérification…';
+    const ok = await testImage(url);
+    btn.disabled = false; btn.textContent = 'Ajouter';
+    if (!ok) {
+      toast("Impossible d'afficher cette image. Le lien doit mener directement à l'image (clic droit sur l'image → « Copier l'adresse de l'image »).", true, 10000);
+      return;
+    }
+    const im = { url, name: nameFromUrl(url) };
+    config.images.unshift(im);
+    $('linkInput').value = '';
+    render();
+    try {
+      await saveConfig('Ajout de ' + im.name);
+      toast("Image ajoutée. Cliquez dessus pour l'afficher.");
+    } catch (e) {
+      config.images = config.images.filter((x) => x !== im);
+      render();
+      handleError(e, "Échec de l'ajout");
     }
   }
 
@@ -450,7 +515,7 @@
   async function prepare(file) {
     const ext = (file.name.match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase();
     const passthrough = { blob: file, ext: ext || (file.type.split('/')[1] || 'jpg') };
-    if (/gif|svg/.test(file.type) || /^(gif|svg)$/.test(ext)) return passthrough; // animations / vectoriel : tel quel
+    if (/gif|svg/.test(file.type) || /^(gif|svg)$/.test(ext)) return passthrough;
     let bmp;
     try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
     catch { if (IMG_RE.test(file.name)) return passthrough; throw new Error(`Format non pris en charge : ${file.name}`); }
@@ -471,86 +536,38 @@
 
   async function upload(fileList) {
     const files = [...fileList].filter((f) => f.type.startsWith('image/') || IMG_RE.test(f.name));
-    if (!files.length) { toast("Aucune image dans la sélection.", true); return; }
-    if (busy) { toast('Une opération est déjà en cours…', true); return; }
-    busy = true; updateSavebar();
-    show('progress', true);
-    const bar = $('progressBar'), txt = $('progressText');
-    const added = [];
-    const changes = [];
+    if (!files.length) { toast('Aucune image dans la sélection.', true); return; }
+    const drop = $('drop');
+    const label = drop.firstChild;
+    const added = [], changes = [];
     try {
       for (let i = 0; i < files.length; i++) {
-        txt.textContent = `Préparation ${i + 1}/${files.length} : ${files[i].name}`;
-        bar.value = (i / files.length) * 40;
+        label.textContent = `Préparation ${i + 1}/${files.length}…`;
         const { blob, ext } = await prepare(files[i]);
         if (blob.size > 40e6) throw new Error(`${files[i].name} est trop volumineuse (max 40 Mo).`);
         const base = slugify(files[i].name.replace(/\.[^.]+$/, ''));
         const path = `${C.imagesDir}/${base}-${Date.now().toString(36)}${i.toString(36)}.${ext}`;
         changes.push({ path, base64: await blobToB64(blob) });
-        added.push({ file: path, name: files[i].name, visible: true, preview: URL.createObjectURL(blob) });
+        added.push({ file: path, name: files[i].name, preview: URL.createObjectURL(blob) });
       }
-      const before = config.images;
-      config.images = config.images.concat(added);
-      const json = cleanConfig();
-      changes.push({ path: C.configPath, content: json });
+      label.textContent = 'Envoi vers GitHub…';
+      config.images = added.concat(config.images);
+      render();
       try {
-        await commitFiles(changes, `Ajout de ${added.length} image(s)`, (n, total) => {
-          txt.textContent = `Envoi vers GitHub… ${Math.min(n, added.length)}/${added.length}`;
-          bar.value = 40 + (n / total) * 55;
-        });
-      } catch (e) { config.images = before; throw e; }
-      savedJson = json;
-      bar.value = 100;
-      toast(`${added.length} image(s) ajoutée(s) et affichée(s).`);
+        await saveConfig(`Ajout de ${added.length} image(s)`, changes);
+      } catch (e) {
+        config.images = config.images.filter((x) => !added.includes(x));
+        render();
+        throw e;
+      }
+      toast(added.length > 1 ? `${added.length} images ajoutées.` : "Image ajoutée. Cliquez dessus pour l'afficher.");
     } catch (e) {
       added.forEach((a) => URL.revokeObjectURL(a.preview));
       handleError(e, "Échec de l'envoi");
     } finally {
-      busy = false;
-      show('progress', false);
+      label.textContent = 'ou déposer / choisir un fichier';
       $('fileInput').value = '';
-      render();
     }
-  }
-
-  function testImage(url) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const t = setTimeout(() => { img.src = ''; resolve(false); }, 15000);
-      img.onload = () => { clearTimeout(t); resolve(img.naturalWidth > 0); };
-      img.onerror = () => { clearTimeout(t); resolve(false); };
-      img.src = url;
-    });
-  }
-
-  function nameFromUrl(url) {
-    try {
-      const u = new URL(url);
-      const last = decodeURIComponent(u.pathname.split('/').filter(Boolean).pop() || '');
-      return last || u.hostname;
-    } catch { return url; }
-  }
-
-  async function addLink(ev) {
-    ev.preventDefault();
-    if (busy) { toast('Une opération est déjà en cours…', true); return; }
-    let url = $('linkInput').value.trim();
-    if (!url) return;
-    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-    try { url = new URL(url).href; } catch { toast("Ce lien n'est pas valide.", true); return; }
-    if (config.images.some((im) => im.url === url)) { toast('Cette image est déjà dans la liste.', true); return; }
-    const btn = $('linkBtn');
-    btn.disabled = true; btn.textContent = 'Vérification…';
-    const ok = await testImage(url);
-    btn.disabled = false; btn.textContent = 'Ajouter le lien';
-    if (!ok) {
-      toast("Impossible d'afficher cette image. Le lien doit mener directement à l'image (clic droit sur l'image → « Copier l'adresse de l'image »).", true, 10000);
-      return;
-    }
-    config.images.push({ url, name: nameFromUrl(url), visible: true });
-    $('linkInput').value = '';
-    render();
-    await publish();
   }
 
   function handleError(e, prefix) {
@@ -566,7 +583,7 @@
     store.del(TOKEN_KEY);
     token = '';
     config = null;
-    show('app', false); show('logoutBtn', false); show('savebar', false); show('loading', false);
+    show('app', false); show('logoutBtn', false); show('loading', false);
     show('loginCard', true);
   }
 
@@ -578,7 +595,7 @@
       show('loading', false);
       if (e.status === 401 || e.status === 403 || e.status === 404) {
         logout();
-        toast(e.status === 404 ? "Dépôt ou branche introuvable avec ce jeton (le dépôt doit contenir au moins un commit)." : e.message.startsWith('GitHub') ? 'Jeton refusé par GitHub.' : e.message, true, 9000);
+        toast(e.custom ? e.message : e.status === 404 ? 'Dépôt ou branche introuvable avec ce jeton.' : 'Jeton refusé par GitHub.', true, 9000);
       } else {
         toast(`Erreur de chargement : ${e.message}`, true, 9000);
       }
@@ -593,26 +610,14 @@
     token = v; store.set(TOKEN_KEY, v); $('tokenInput').value = '';
     start();
   };
-  $('logoutBtn').onclick = () => {
-    if (isDirty() && !confirm('Des modifications ne sont pas publiées. Se déconnecter quand même ?')) return;
-    logout();
-  };
-  $('publishBtn').onclick = publish;
+  $('logoutBtn').onclick = logout;
   $('linkForm').onsubmit = addLink;
-  $('discardBtn').onclick = () => {
-    const previews = new Map(config.images.map((im) => [im.file, im.preview]));
-    config = JSON.parse(savedJson);
-    config.images.forEach((im) => { if (previews.get(im.file)) im.preview = previews.get(im.file); });
-    render();
+  $('blackBtn').onclick = () => select(null);
+  $('fit').onchange = async () => {
+    config.fit = $('fit').value;
+    renderLive(); broadcast();
+    try { await saveConfig('Cadrage : ' + config.fit); } catch (e) { handleError(e, "Échec de l'enregistrement"); }
   };
-  $('duration').onchange = () => {
-    const v = Math.max(2, Math.min(3600, Math.round(Number($('duration').value) || 8)));
-    config.duration = v; render();
-  };
-  $('fit').onchange = () => { config.fit = $('fit').value; render(); };
-  $('shuffle').onchange = () => { config.shuffle = $('shuffle').checked; render(); };
-  $('allOn').onclick = () => { config.images.forEach((im) => (im.visible = true)); render(); };
-  $('allOff').onclick = () => { config.images.forEach((im) => (im.visible = false)); render(); };
 
   const drop = $('drop');
   drop.onclick = () => $('fileInput').click();
@@ -621,10 +626,9 @@
   ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
   drop.addEventListener('drop', (e) => upload(e.dataTransfer.files));
-  // Empêche le navigateur d'ouvrir une image lâchée à côté de la zone.
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => e.preventDefault());
-  window.addEventListener('beforeunload', (e) => { if (isDirty() || busy) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('beforeunload', (e) => { if (busyCount > 0) { e.preventDefault(); e.returnValue = ''; } });
 
   start();
 })();

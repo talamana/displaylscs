@@ -6,6 +6,6 @@ window.DISPLAY_CONFIG = {
   branch: 'main',
   imagesDir: 'images',
   configPath: 'config.json',
-  // Intervalle (secondes) auquel le diaporama vérifie s'il y a des changements.
-  refreshSeconds: 30
+  // Fréquence (secondes) à laquelle l'écran vérifie quelle image afficher.
+  pollSeconds: 3
 };
