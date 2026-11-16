@@ -67,14 +67,7 @@
   #status.err { color: var(--danger); }
   .liveLabel { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: var(--muted); }
 
-  .add { display: grid; grid-template-columns: 1fr auto; gap: 12px; margin-bottom: 20px; }
-  .add form { margin: 0; }
-  #drop {
-    border: 2px dashed #c9c6bb; border-radius: var(--radius); background: var(--panel);
-    padding: 0 18px; display: flex; align-items: center; justify-content: center; cursor: pointer;
-    color: var(--muted); font-size: 14px; transition: .15s; min-height: 58px;
-  }
-  #drop.over { border-color: var(--accent); background: #eef6f3; color: var(--accent); }
+  .add { margin: 0 0 20px; flex-wrap: nowrap; }
 
   .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 14px; }
   .toolbar label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 14px; }
@@ -113,7 +106,7 @@
   #toast.error { border-color: var(--danger); color: var(--danger); }
   @media (max-width: 700px) {
     header, main { padding-left: 16px; padding-right: 16px; }
-    #live, .add { grid-template-columns: 1fr; }
+    #live { grid-template-columns: 1fr; }
     #grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   }
 </style>
@@ -169,15 +162,10 @@
     </div>
 
     <!-- Ajouter -->
-    <div class="add">
-      <form id="linkForm" class="row">
-        <input id="linkInput" type="text" inputmode="url" placeholder="Coller le lien d'une image (https://…)" autocomplete="off" style="flex:1;min-width:220px;padding:14px 12px">
-        <button id="linkBtn" class="primary" type="submit" style="padding:14px 16px">Ajouter</button>
-      </form>
-      <div id="drop" tabindex="0" role="button">ou déposer / choisir un fichier
-        <input id="fileInput" type="file" accept="image/*" multiple hidden>
-      </div>
-    </div>
+    <form id="linkForm" class="row add">
+      <input id="linkInput" type="text" inputmode="url" placeholder="Coller le lien d'une image (https://…)" autocomplete="off" style="flex:1;min-width:220px;padding:14px 12px">
+      <button id="linkBtn" class="primary" type="submit" style="padding:14px 16px">Ajouter</button>
+    </form>
 
     <div class="toolbar">
       <div class="muted">Cliquez sur une image pour l'afficher immédiatement à l'écran.</div>
@@ -198,9 +186,6 @@
   'use strict';
   const C = window.DISPLAY_CONFIG;
   const API = `https://api.github.com/repos/${C.owner}/${C.repo}`;
-  const IMG_RE = /\.(jpe?g|png|gif|webp|avif|bmp|svg)$/i;
-  const MAX_SIDE = 2560;          // taille max (px) après redimensionnement
-  const MAX_UNTOUCHED = 1.5e6;    // en dessous, le fichier est envoyé tel quel
   const $ = (id) => document.getElementById(id);
   const channel = 'BroadcastChannel' in window ? new BroadcastChannel(`displaylscs_${C.owner}_${C.repo}`) : null;
 
@@ -212,7 +197,6 @@
   const TOKEN_KEY = `displaylscs_token_${C.owner}_${C.repo}`;
   let token = store.get(TOKEN_KEY) || '';
 
-  let headSha = null;   // dernier commit connu
   let config = null;    // état local
   let savedJson = '';   // dernier état enregistré sur GitHub
 
@@ -259,73 +243,59 @@
     for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
     return btoa(bin);
   }
-  function blobToB64(blob) {
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(String(r.result).split(',')[1]);
-      r.onerror = () => reject(r.error);
-      r.readAsDataURL(blob);
-    });
-  }
   const encPath = (p) => p.split('/').map(encodeURIComponent).join('/');
   const idOf = (im) => im.url || im.file;
-  const srcOf = (im) => im.preview || im.url || `https://raw.githubusercontent.com/${C.owner}/${C.repo}/${headSha}/${encPath(im.file)}`;
-  // Adresse utilisée par l'écran (branche, pas de commit : toujours à jour).
-  const screenSrc = (im) => im.url || `https://raw.githubusercontent.com/${C.owner}/${C.repo}/${C.branch}/${encPath(im.file)}`;
+  // Les anciennes images envoyées comme fichiers restent affichables (depuis le dépôt).
+  const srcOf = (im) => im.url || `https://raw.githubusercontent.com/${C.owner}/${C.repo}/${C.branch}/${encPath(im.file)}`;
   const findCurrent = () => config.images.find((im) => idOf(im) === config.current) || null;
 
-  function defaultConfig() { return { current: null, fit: 'contain', images: [] }; }
+  function defaultConfig() { return { current: null, fit: 'contain', updated: 0, images: [] }; }
   function cleanConfig() {
     const out = {
       current: config.current || null,
       fit: config.fit === 'cover' ? 'cover' : 'contain',
+      updated: config.updated || 0,
       images: config.images.map((im) => (im.url ? { url: im.url, name: im.name } : { file: im.file, name: im.name })),
     };
     return JSON.stringify(out, null, 2) + '\n';
   }
 
-  // Un seul commit pour plusieurs fichiers (ajouts / suppressions).
-  async function commitFiles(files, message) {
+  // ---------- Envoi instantané à l'écran ----------
+  async function pushToScreen() {
+    const msg = { current: config.current || null, fit: config.fit, updated: config.updated };
+    try { channel && channel.postMessage(msg); } catch {}
+    // Requête « simple » (texte brut) : pas de pré-vérification CORS, donc le plus rapide possible.
+    const res = await fetch(`${C.ntfyServer}/${C.ntfyTopic}`, { method: 'POST', body: JSON.stringify(msg) });
+    if (!res.ok) throw new Error('ntfy ' + res.status);
+  }
+
+  // ---------- Enregistrement sur GitHub (mémoire, en arrière-plan) ----------
+  async function commitConfig(message) {
     const ref = await gh(`git/ref/heads/${C.branch}`);
     const parent = ref.object.sha;
     const parentCommit = await gh(`git/commits/${parent}`);
-    const tree = [];
-    for (const f of files) {
-      if (f.delete) {
-        tree.push({ path: f.path, mode: '100644', type: 'blob', sha: null });
-      } else {
-        const blob = await gh('git/blobs', { method: 'POST', body: { content: f.base64 ?? utf8ToB64(f.content), encoding: 'base64' } });
-        tree.push({ path: f.path, mode: '100644', type: 'blob', sha: blob.sha });
-      }
-    }
-    const newTree = await gh('git/trees', { method: 'POST', body: { base_tree: parentCommit.tree.sha, tree } });
-    const commit = await gh('git/commits', { method: 'POST', body: { message, tree: newTree.sha, parents: [parent] } });
+    const json = cleanConfig();
+    const blob = await gh('git/blobs', { method: 'POST', body: { content: utf8ToB64(json), encoding: 'base64' } });
+    const tree = await gh('git/trees', { method: 'POST', body: { base_tree: parentCommit.tree.sha, tree: [{ path: C.configPath, mode: '100644', type: 'blob', sha: blob.sha }] } });
+    const commit = await gh('git/commits', { method: 'POST', body: { message, tree: tree.sha, parents: [parent] } });
     await gh(`git/refs/heads/${C.branch}`, { method: 'PATCH', body: { sha: commit.sha } });
-    headSha = commit.sha;
-    return commit.sha;
+    return json;
   }
 
-  // File d'attente : les enregistrements partent un par un, et plusieurs clics rapides
-  // n'en font qu'un (seul le dernier choix compte).
+  // Les enregistrements partent un par un ; plusieurs clics rapides n'en font qu'un.
   let chain = Promise.resolve();
-  let pendingSave = null;   // enregistrement simple en attente (pas encore démarré)
+  let pendingSave = null;
   let busyCount = 0;
-  function enqueue(task) {
+  function saveConfig(message) {
+    if (pendingSave) return pendingSave;
     busyCount++;
-    const p = chain.then(task).finally(() => { busyCount--; });
-    chain = p.catch(() => {});
-    return p;
-  }
-  function saveConfig(message, extraFiles = []) {
-    if (!extraFiles.length && pendingSave) return pendingSave;
-    const p = enqueue(async () => {
+    const p = chain.then(async () => {
       if (pendingSave === p) pendingSave = null;
-      const json = cleanConfig();
-      if (json === savedJson && !extraFiles.length) return;
-      await commitFiles([...extraFiles, { path: C.configPath, content: json }], message);
-      savedJson = json;
-    });
-    if (!extraFiles.length) pendingSave = p;
+      if (cleanConfig() === savedJson) return;
+      savedJson = await commitConfig(message);
+    }).finally(() => { busyCount--; });
+    pendingSave = p;
+    chain = p.catch(() => {});
     return p;
   }
 
@@ -337,32 +307,17 @@
       const e = new Error("Ce jeton n'a pas le droit d'écrire dans le dépôt (Contents : Read and write).");
       e.status = 403; e.custom = true; throw e;
     }
-    const ref = await gh(`git/ref/heads/${C.branch}`);
-    headSha = ref.object.sha;
-
     let cfg;
     try {
-      cfg = JSON.parse(await gh(`contents/${encPath(C.configPath)}?ref=${headSha}`, { accept: 'application/vnd.github.raw+json', raw: true }));
+      cfg = JSON.parse(await gh(`contents/${encPath(C.configPath)}?ref=${C.branch}`, { accept: 'application/vnd.github.raw+json', raw: true }));
     } catch (e) {
       if (e.status !== 404) throw e;
       cfg = defaultConfig();
     }
-    let files = [];
-    try {
-      const list = await gh(`contents/${encPath(C.imagesDir)}?ref=${headSha}`);
-      files = list.filter((f) => f.type === 'file' && IMG_RE.test(f.name)).map((f) => f.path);
-    } catch (e) {
-      if (e.status !== 404) throw e;
-    }
-
-    // Normalisation (et reprise d'une ancienne config éventuelle).
-    const fileSet = new Set(files);
-    const images = (cfg.images || []).filter((im) => im && (im.url || fileSet.has(im.file)));
-    const known = new Set(images.map((im) => im.file).filter(Boolean));
-    for (const f of files) if (!known.has(f)) images.push({ file: f, name: f.split('/').pop() });
+    const images = (cfg.images || []).filter((im) => im && (im.url || im.file));
     let current = cfg.current || null;
-    if (current === undefined || (current && !images.some((im) => idOf(im) === current))) current = null;
-    config = { current, fit: cfg.fit === 'cover' ? 'cover' : 'contain', images };
+    if (current && !images.some((im) => idOf(im) === current)) current = null;
+    config = { current, fit: cfg.fit === 'cover' ? 'cover' : 'contain', updated: Number(cfg.updated) || 0, images };
     savedJson = cleanConfig();
 
     show('loading', false);
@@ -410,7 +365,7 @@
           <button class="del" title="Supprimer de la liste">✕</button>
         </div>`;
       el.querySelector('img').src = srcOf(im);
-      el.querySelector('.name').textContent = (im.url ? '🔗 ' : '') + (im.name || idOf(im));
+      el.querySelector('.name').textContent = im.name || idOf(im);
       el.querySelector('.name').title = idOf(im);
       el.querySelector('.thumb').onclick = () => select(idOf(im));
       el.querySelector('.del').onclick = () => removeImage(im);
@@ -421,43 +376,41 @@
   }
 
   // ---------- Actions ----------
-  async function select(id) {
-    if (config.current === id) return;
-    config.current = id;
+  // Applique un changement d'affichage : écran d'abord (instantané), GitHub ensuite.
+  async function sendState(message) {
+    config.updated = Date.now();
+    const stamp = config.updated;
     render();
-    broadcast();
-    setStatus('Envoi à l\'écran…');
+    let pushed = false;
+    try { await pushToScreen(); pushed = true; }
+    catch (e) { console.warn('Canal temps réel indisponible', e); }
+    if (stamp === config.updated) {
+      setStatus(pushed ? '✔ À l\'écran' : 'Envoi via GitHub (quelques secondes)…', pushed ? 'ok' : 'muted');
+    }
     try {
-      await saveConfig('Image affichée : ' + (findCurrent()?.name || 'écran noir'));
-      if (config.current === id && busyCount === 0) setStatus("✔ Envoyé — l'écran se met à jour en quelques secondes.", 'ok');
+      await saveConfig(message);
+      if (!pushed && stamp === config.updated && busyCount === 0) setStatus('✔ À l\'écran (via GitHub)', 'ok');
     } catch (e) {
-      handleError(e, "Échec de l'envoi");
-      setStatus("✖ Non envoyé. Réessayez.", 'err');
+      handleError(e, "Échec de l'enregistrement sur GitHub");
+      if (stamp === config.updated) setStatus(pushed ? '✔ À l\'écran, mais non mémorisé (réessayez)' : '✖ Non envoyé. Réessayez.', 'err');
     }
   }
 
-  function broadcast() {
-    // Mise à jour instantanée si l'écran est ouvert dans ce même navigateur.
-    const cur = findCurrent();
-    try { channel && channel.postMessage({ src: cur ? screenSrc(cur) : null, fit: config.fit }); } catch {}
+  function select(id) {
+    if (config.current === id) return;
+    config.current = id;
+    sendState('Image affichée : ' + (findCurrent()?.name || 'écran noir'));
   }
 
   async function removeImage(im) {
     const label = im.name || idOf(im);
-    if (!confirm(`Supprimer « ${label} » de la liste ?`)) return;
+    if (!confirm(`Retirer « ${label} » de la liste ?`)) return;
     const wasCurrent = idOf(im) === config.current;
-    const backup = { images: config.images.slice(), current: config.current };
     config.images = config.images.filter((x) => x !== im);
-    if (wasCurrent) { config.current = null; broadcast(); }
+    if (wasCurrent) { config.current = null; await sendState(`Suppression de ${label}`); return; }
     render();
-    try {
-      await saveConfig(`Suppression de ${label}`, im.file ? [{ path: im.file, delete: true }] : []);
-      toast(wasCurrent ? "Image supprimée — l'écran passe au noir." : 'Image supprimée.');
-    } catch (e) {
-      config.images = backup.images; config.current = backup.current;
-      render();
-      handleError(e, 'Échec de la suppression');
-    }
+    try { await saveConfig(`Suppression de ${label}`); }
+    catch (e) { handleError(e, 'Échec de la suppression'); }
   }
 
   function testImage(url) {
@@ -496,77 +449,12 @@
     config.images.unshift(im);
     $('linkInput').value = '';
     render();
-    try {
-      await saveConfig('Ajout de ' + im.name);
-      toast("Image ajoutée. Cliquez dessus pour l'afficher.");
-    } catch (e) {
+    toast("Image ajoutée. Cliquez dessus pour l'afficher.");
+    try { await saveConfig('Ajout de ' + im.name); }
+    catch (e) {
       config.images = config.images.filter((x) => x !== im);
       render();
       handleError(e, "Échec de l'ajout");
-    }
-  }
-
-  function slugify(name) {
-    return name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'image';
-  }
-
-  // Redimensionne les grandes images pour garder le dépôt léger.
-  async function prepare(file) {
-    const ext = (file.name.match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase();
-    const passthrough = { blob: file, ext: ext || (file.type.split('/')[1] || 'jpg') };
-    if (/gif|svg/.test(file.type) || /^(gif|svg)$/.test(ext)) return passthrough;
-    let bmp;
-    try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
-    catch { if (IMG_RE.test(file.name)) return passthrough; throw new Error(`Format non pris en charge : ${file.name}`); }
-    const big = Math.max(bmp.width, bmp.height) > MAX_SIDE;
-    if (!big && file.size <= MAX_UNTOUCHED && IMG_RE.test(file.name)) { bmp.close && bmp.close(); return passthrough; }
-    const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(bmp.width * scale);
-    canvas.height = Math.round(bmp.height * scale);
-    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
-    bmp.close && bmp.close();
-    const isJpeg = /jpe?g/.test(file.type) || /^jpe?g$/.test(ext) || /heic|heif/.test(file.type + ext);
-    const type = isJpeg ? 'image/jpeg' : 'image/webp';
-    const blob = await new Promise((res) => canvas.toBlob(res, type, 0.88));
-    if (!blob) return passthrough;
-    return { blob, ext: isJpeg ? 'jpg' : 'webp' };
-  }
-
-  async function upload(fileList) {
-    const files = [...fileList].filter((f) => f.type.startsWith('image/') || IMG_RE.test(f.name));
-    if (!files.length) { toast('Aucune image dans la sélection.', true); return; }
-    const drop = $('drop');
-    const label = drop.firstChild;
-    const added = [], changes = [];
-    try {
-      for (let i = 0; i < files.length; i++) {
-        label.textContent = `Préparation ${i + 1}/${files.length}…`;
-        const { blob, ext } = await prepare(files[i]);
-        if (blob.size > 40e6) throw new Error(`${files[i].name} est trop volumineuse (max 40 Mo).`);
-        const base = slugify(files[i].name.replace(/\.[^.]+$/, ''));
-        const path = `${C.imagesDir}/${base}-${Date.now().toString(36)}${i.toString(36)}.${ext}`;
-        changes.push({ path, base64: await blobToB64(blob) });
-        added.push({ file: path, name: files[i].name, preview: URL.createObjectURL(blob) });
-      }
-      label.textContent = 'Envoi vers GitHub…';
-      config.images = added.concat(config.images);
-      render();
-      try {
-        await saveConfig(`Ajout de ${added.length} image(s)`, changes);
-      } catch (e) {
-        config.images = config.images.filter((x) => !added.includes(x));
-        render();
-        throw e;
-      }
-      toast(added.length > 1 ? `${added.length} images ajoutées.` : "Image ajoutée. Cliquez dessus pour l'afficher.");
-    } catch (e) {
-      added.forEach((a) => URL.revokeObjectURL(a.preview));
-      handleError(e, "Échec de l'envoi");
-    } finally {
-      label.textContent = 'ou déposer / choisir un fichier';
-      $('fileInput').value = '';
     }
   }
 
@@ -613,21 +501,7 @@
   $('logoutBtn').onclick = logout;
   $('linkForm').onsubmit = addLink;
   $('blackBtn').onclick = () => select(null);
-  $('fit').onchange = async () => {
-    config.fit = $('fit').value;
-    renderLive(); broadcast();
-    try { await saveConfig('Cadrage : ' + config.fit); } catch (e) { handleError(e, "Échec de l'enregistrement"); }
-  };
-
-  const drop = $('drop');
-  drop.onclick = () => $('fileInput').click();
-  drop.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('fileInput').click(); } };
-  $('fileInput').onchange = (e) => upload(e.target.files);
-  ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
-  ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', (e) => upload(e.dataTransfer.files));
-  window.addEventListener('dragover', (e) => e.preventDefault());
-  window.addEventListener('drop', (e) => e.preventDefault());
+  $('fit').onchange = () => { config.fit = $('fit').value; sendState('Cadrage : ' + config.fit); };
   window.addEventListener('beforeunload', (e) => { if (busyCount > 0) { e.preventDefault(); e.returnValue = ''; } });
 
   start();

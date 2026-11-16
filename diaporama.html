@@ -12,7 +12,7 @@
   body.idle { cursor: none; }
   .slide {
     position: fixed; inset: 0; width: 100%; height: 100%;
-    object-fit: contain; opacity: 0; transition: opacity .6s ease;
+    object-fit: contain; opacity: 0; transition: opacity .15s linear;
     user-select: none; -webkit-user-drag: none;
   }
   .slide.show { opacity: 1; }
@@ -34,78 +34,38 @@
 (() => {
   'use strict';
   const C = window.DISPLAY_CONFIG || {};
-  const POLL = Math.max(2, C.pollSeconds || 3) * 1000;
+  const POLL = Math.max(2, C.pollSeconds || 5) * 1000;
   const API_URL = `https://api.github.com/repos/${C.owner}/${C.repo}/contents/${C.configPath}?ref=${C.branch}`;
   const layers = [document.getElementById('a'), document.getElementById('b')];
   let front = 0;
   let shownSrc = null;      // image actuellement affichée (null = écran noir)
   let wantedSrc;            // dernière image demandée
+  let lastUpdated = -1;     // horodatage du dernier état appliqué (le plus récent gagne)
+  let allowed = new Set();  // identifiants des images de la liste (seules acceptées)
   let etag = null;
-  let apiPausedUntil = 0;   // si l'API GitHub limite les requêtes, on passe par la copie du site
+  let apiPausedUntil = 0;
+  const preloaded = new Map();
 
   const encPath = (p) => p.split('/').map(encodeURIComponent).join('/');
-  function srcFromConfig(cfg) {
-    const id = cfg.current;
-    if (!id) return null;
-    const im = (cfg.images || []).find((x) => x && (x.url || x.file) === id);
-    if (!im) return null;
-    return im.url || `https://raw.githubusercontent.com/${C.owner}/${C.repo}/${C.branch}/${encPath(im.file)}`;
-  }
+  const srcOf = (id) => (/^https?:\/\//i.test(id) ? id : `https://raw.githubusercontent.com/${C.owner}/${C.repo}/${C.branch}/${encPath(id)}`);
 
-  // Lecture via l'API GitHub : à jour immédiatement. Les réponses « pas de changement » (304)
-  // ne consomment pas de quota.
-  async function fetchFromApi() {
-    const headers = { Accept: 'application/vnd.github.raw+json' };
-    if (etag) headers['If-None-Match'] = etag;
-    const res = await fetch(API_URL, { headers, cache: 'no-store' });
-    if (res.status === 304) return null;
-    if (res.status === 403 || res.status === 429) {
-      const reset = Number(res.headers.get('X-RateLimit-Reset')) * 1000;
-      apiPausedUntil = reset > Date.now() ? reset + 1000 : Date.now() + 10 * 60 * 1000;
-      throw new Error('limite API');
-    }
-    if (!res.ok) throw new Error('API ' + res.status);
-    etag = res.headers.get('ETag');
-    return res.json();
-  }
-  // Solution de secours : le config.json publié avec le site (mis à jour avec ~1 min de retard).
-  async function fetchFromSite() {
-    const res = await fetch(`${C.configPath}?t=${Date.now()}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error('site ' + res.status);
-    return res.json();
-  }
-
-  let polling = false;
-  async function poll() {
-    if (polling) return;
-    polling = true;
-    try {
-      let cfg;
-      if (Date.now() >= apiPausedUntil) {
-        try { cfg = await fetchFromApi(); }
-        catch (e) { console.warn(e.message); cfg = await fetchFromSite(); }
-      } else {
-        cfg = await fetchFromSite();
-      }
-      if (cfg) apply(srcFromConfig(cfg), cfg.fit);
-    } catch (e) {
-      console.warn('Lecture impossible, nouvel essai bientôt', e);
-    } finally {
-      polling = false;
-    }
-  }
-
+  // ---------- Affichage ----------
   function loadImage(src) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(resolve);
-      img.onerror = () => reject(new Error('Image introuvable : ' + src));
-      img.src = src;
-    });
+    let p = preloaded.get(src);
+    if (!p) {
+      p = new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(() => resolve(img));
+        img.onerror = () => { preloaded.delete(src); reject(new Error('Image introuvable : ' + src)); };
+        img.src = src;
+      });
+      p.catch(() => {});
+      preloaded.set(src, p);
+    }
+    return p;
   }
 
-  async function apply(src, fit) {
-    document.body.classList.toggle('cover', fit === 'cover');
+  async function show(src) {
     if (src === wantedSrc) return;
     wantedSrc = src;
     if (src === shownSrc) return;
@@ -128,10 +88,90 @@
     shownSrc = src;
   }
 
-  // Mise à jour instantanée si la page de gestion est ouverte dans ce même navigateur.
+  // Applique un état { current, fit, updated } s'il est plus récent que l'actuel.
+  function applyState(st) {
+    const updated = Number(st.updated) || 0;
+    if (updated < lastUpdated) return;
+    lastUpdated = updated;
+    document.body.classList.toggle('cover', st.fit === 'cover');
+    show(st.current ? srcOf(st.current) : null);
+  }
+
+  // ---------- Source 1 : canal temps réel (instantané) ----------
+  function onPush(st, attempt = 0) {
+    if (!st || typeof st !== 'object') return;
+    if (st.current && !allowed.has(st.current)) {
+      // Image pas encore connue (lien tout juste ajouté) : on relit la liste puis on réessaie.
+      if (attempt < 4) poll().then(() => setTimeout(() => onPush(st, attempt + 1), attempt ? 1000 : 0));
+      return;
+    }
+    applyState(st);
+  }
+
+  function connectRealtime() {
+    if (!C.ntfyTopic || !('EventSource' in window)) return;
+    const es = new EventSource(`${C.ntfyServer || 'https://ntfy.sh'}/${C.ntfyTopic}/sse`);
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.event !== 'message') return;
+        onPush(JSON.parse(data.message));
+      } catch {}
+    };
+    // EventSource se reconnecte tout seul ; à la reconnexion on relit GitHub pour rattraper un éventuel message manqué.
+    es.onopen = () => poll();
+  }
+
   if ('BroadcastChannel' in window) {
     const ch = new BroadcastChannel(`displaylscs_${C.owner}_${C.repo}`);
-    ch.onmessage = (e) => { if (e.data) apply(e.data.src, e.data.fit); };
+    ch.onmessage = (e) => onPush(e.data);
+  }
+
+  // ---------- Source 2 : config.json sur GitHub (mémoire + secours) ----------
+  async function fetchFromApi() {
+    const headers = { Accept: 'application/vnd.github.raw+json' };
+    if (etag) headers['If-None-Match'] = etag;
+    const res = await fetch(API_URL, { headers, cache: 'no-store' });
+    if (res.status === 304) return null;
+    if (res.status === 403 || res.status === 429) {
+      const reset = Number(res.headers.get('X-RateLimit-Reset')) * 1000;
+      apiPausedUntil = reset > Date.now() ? reset + 1000 : Date.now() + 10 * 60 * 1000;
+      throw new Error('limite API');
+    }
+    if (!res.ok) throw new Error('API ' + res.status);
+    etag = res.headers.get('ETag');
+    return res.json();
+  }
+  async function fetchFromSite() {
+    const res = await fetch(`${C.configPath}?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('site ' + res.status);
+    return res.json();
+  }
+
+  let polling = null;
+  function poll() {
+    if (polling) return polling;
+    polling = (async () => {
+      try {
+        let cfg;
+        if (Date.now() >= apiPausedUntil) {
+          try { cfg = await fetchFromApi(); }
+          catch (e) { console.warn(e.message); cfg = await fetchFromSite(); }
+        } else {
+          cfg = await fetchFromSite();
+        }
+        if (!cfg) return;
+        const ids = (cfg.images || []).filter((im) => im && (im.url || im.file)).map((im) => im.url || im.file);
+        allowed = new Set(ids);
+        ids.slice(0, 40).forEach((id) => loadImage(srcOf(id))); // préchargement : changement immédiat
+        applyState(cfg);
+      } catch (e) {
+        console.warn('Lecture impossible, nouvel essai bientôt', e);
+      } finally {
+        polling = null;
+      }
+    })();
+    return polling;
   }
 
   // ---------- Plein écran, souris ----------
@@ -157,7 +197,6 @@
   document.addEventListener('touchstart', wake, { passive: true });
   wake();
 
-  // Garde l'écran allumé quand c'est possible.
   async function keepAwake() {
     try { if ('wakeLock' in navigator && document.visibilityState === 'visible') await navigator.wakeLock.request('screen'); }
     catch {}
@@ -165,9 +204,8 @@
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { keepAwake(); poll(); } });
   keepAwake();
 
-  poll();
+  poll().then(connectRealtime);
   setInterval(poll, POLL);
-  // Rechargement complet toutes les 6 h pour récupérer d'éventuelles mises à jour de la page.
   setTimeout(() => location.reload(), 6 * 3600 * 1000);
 })();
 </script>

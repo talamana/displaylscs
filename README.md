@@ -2,10 +2,10 @@
 
 Petit site statique (GitHub Pages) pour piloter un écran d'affichage :
 
-- **`index.html`** – page de gestion : ajouter des images (par lien ou par fichier), puis **cliquer sur une image pour l'afficher** à l'écran. Bouton « Écran noir » pour ne rien afficher.
-- **`diaporama.html`** – page à ouvrir sur l'écran : affiche en plein écran l'image choisie et change dans les secondes qui suivent un clic (pas de minuterie, pas de défilement automatique).
+- **`index.html`** – page de gestion : ajouter des images par **lien**, puis **cliquer sur une image pour l'afficher** à l'écran. Bouton « Écran noir » pour ne rien afficher.
+- **`diaporama.html`** – page à ouvrir sur l'écran : affiche en plein écran l'image choisie et change **instantanément** au clic (pas de minuterie, pas de défilement automatique).
 
-Les liens et l'image choisie sont enregistrés dans `config.json` ; les fichiers envoyés vont dans `images/`. Tout passe par l'API GitHub, il n'y a aucun serveur à gérer.
+Le clic est transmis instantanément à l'écran via [ntfy.sh](https://ntfy.sh) (service gratuit de messages en temps réel, environ 250 messages par jour en offre gratuite). En parallèle, la liste et l'image choisie sont mémorisées dans `config.json` sur GitHub, pour qu'un écran rallumé reprenne la bonne image. Il n'y a aucun serveur à gérer.
 
 ## Mise en route
 
@@ -23,16 +23,14 @@ Les liens et l'image choisie sont enregistrés dans `config.json` ; les fichiers
 | Page de gestion | |
 |---|---|
 | Coller un lien + « Ajouter » | Ajoute l'image à la liste (le lien doit pointer directement vers l'image) |
-| Déposer / choisir un fichier | Envoie un fichier image dans le dépôt |
-| Clic sur une image | L'affiche à l'écran (en 2 à 5 secondes) |
+| Clic sur une image | L'affiche à l'écran immédiatement |
 | Écran noir | N'affiche plus rien |
 | Cadrage | Image entière ou remplir l'écran |
 | ✕ | Retire l'image de la liste |
 
-L'écran vérifie toutes les 3 secondes (réglable dans `config.js`) quelle image afficher, en lisant `config.json` via l'API GitHub. Si l'écran et la page de gestion sont ouverts dans le même navigateur, le changement est instantané.
+L'écran précharge toutes les images de la liste pour que le changement soit immédiat. Il n'accepte que les images de la liste : un message envoyé par quelqu'un d'autre sur le canal ntfy avec une autre image est ignoré. Si ntfy est indisponible, l'écran se rabat sur GitHub (vérification toutes les 5 s, réglable dans `config.js`).
 
 ## Notes
 
 - Le jeton reste dans le navigateur (localStorage) ; le bouton « Se déconnecter » l'efface.
 - Sans jeton, la page de gestion ne peut rien modifier : la page écran, elle, est publique comme le dépôt.
-- Les grandes photos envoyées sont automatiquement réduites (2560 px max).

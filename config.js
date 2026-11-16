@@ -4,8 +4,11 @@ window.DISPLAY_CONFIG = {
   owner: 'talamana',
   repo: 'displaylscs',
   branch: 'main',
-  imagesDir: 'images',
   configPath: 'config.json',
-  // Fréquence (secondes) à laquelle l'écran vérifie quelle image afficher.
-  pollSeconds: 3
+  // Canal temps réel (ntfy.sh, gratuit) : le clic sur une image est transmis
+  // instantanément à l'écran. L'écran n'accepte que les images de la liste.
+  ntfyServer: 'https://ntfy.sh',
+  ntfyTopic: 'displaylscs-ac09cfab4d9ec8b8cee8',
+  // Vérification de secours via GitHub (secondes), au cas où le canal temps réel serait coupé.
+  pollSeconds: 5
 };
